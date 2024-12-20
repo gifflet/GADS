@@ -21,7 +21,7 @@ GADS is an application for remote control and Appium test execution on mobile de
 The app consists of two main components  - `hub` and `provider`  
 The role of the `hub` is to serve a web interface for the remote control of devices and provider management, as well as act as proxy for providers.  
 The role of the `provider` is to set up and provide the mobile devices for remote control/testing  
-Supports both Android and iOS devices  
+Supports Android, iOS and Tizen TV devices  
 Supports Linux, macOS and Windows - notes below
 
 ## Features
@@ -33,7 +33,9 @@ Supports Linux, macOS and Windows - notes below
   - Devices control (most of interaction is wrapped around Appium APIs)
     - Live video
       - **NB** Videos are essentially MJPEG streams so they are very bandwidth hungry
+      - **NB** Video streaming is not available for Tizen TV devices
     - Basic remote control - tap, swipe, touch&hold, home, lock, unlock, type text to active element, get clipboard
+      - **NB** Some controls may be limited for Tizen TV devices due to their nature
     - Install/Uninstall apps
     - Take high quality screenshots
     - Reservation - loading a device sets it `In use` and can't be used by another person until it is released
@@ -63,6 +65,11 @@ Supports Linux, macOS and Windows - notes below
 - Windows 10
   - Supports Android / iOS
   - Has some limitations to Appium execution with iOS devices due to actual Xcode tools being unavailable on Windows
+- Tizen TV support
+  - Automatic device detection and setup
+  - Remote control through Appium TizenTV driver
+  - Device pairing and authentication handling
+  - Basic interaction support through Appium endpoints
 
 Developed and tested on Ubuntu 18.04 LTS, Ubuntu 20.04 LTS, Windows 10, macOS Sequioa 15.0
 
