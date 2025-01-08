@@ -4,6 +4,7 @@ import InfoIcon from '@mui/icons-material/Info'
 import AspectRatioIcon from '@mui/icons-material/AspectRatio'
 import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid'
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone'
+import TvIcon from '@mui/icons-material/Tv'
 import { useNavigate } from 'react-router-dom'
 import React, { useEffect, useState } from 'react'
 import './DeviceBox.css'
@@ -12,8 +13,9 @@ import { useSnackbar } from '../../contexts/SnackBarContext'
 
 export default function DeviceBox({ device }) {
     const [isAdmin, setIsAdmin] = useState(false)
-    let img_src = device.info.os === 'android' ? './images/android-logo.png' : './images/apple-logo.png'
-    const { showSnackbar } = useSnackbar()
+    let img_src = device.info.os === 'android' ? './images/android-logo.png' : 
+                  device.info.os === 'ios' ? './images/apple-logo.png' : 
+                  './images/tizen-logo.png';
 
     useEffect(() => {
         let roleFromStorage = localStorage.getItem('userRole')
@@ -42,45 +44,28 @@ export default function DeviceBox({ device }) {
     }
 
     return (
-        <Box
-            className='device-box'
-        >
-            <Stack
-                divider={<Divider orientation='horizontal' flexItem />}
-            >
-                <Box
-                    className='status-box'
-                >
-                    <Stack
-                        direction='row'
-                        spacing={1}
-                        alignItems='center'
-                    >
-                        <Box
-                            className='logo-box'
-                        >
-                            <img
-                                src={img_src}
-                                height='50px'
-                            >
-                            </img>
+        <Box className='device-box'>
+            <Stack divider={<Divider orientation='horizontal' flexItem />}>
+                <Box className='status-box'>
+                    <Stack direction='row' spacing={1} alignItems='center'>
+                        <Box className='logo-box'>
+                            <img src={img_src} height='50px' alt={device.info.os} />
                         </Box>
-                        <DeviceStatus device={device}
-                        ></DeviceStatus>
-
+                        <DeviceStatus device={device} />
                     </Stack>
                 </Box>
                 <Box className='info-box'>
-                    <List
-                        id='info-list'
-                        dense='true'
-                    >
+                    <List id='info-list' dense='true'>
                         <ListItem>
                             <ListItemIcon>
                                 {device.info.os === 'ios' ? (
-                                    <PhoneIphoneIcon></PhoneIphoneIcon>
+                                    <PhoneIphoneIcon />
+                                ) : device.info.os === 'android' ? (
+                                    <PhoneAndroidIcon />
+                                ) : device.info.os === 'tizen' ? (
+                                    <TvIcon />
                                 ) : (
-                                    <PhoneAndroidIcon></PhoneAndroidIcon>
+                                    <HomeIcon />
                                 )}
                             </ListItemIcon>
                             <ListItemText
@@ -145,20 +130,9 @@ export default function DeviceBox({ device }) {
                         </ListItem>
                     </List>
                 </Box>
-                <Stack
-                    direction='row'
-                    spacing={1}
-                    justifyContent='flex-end'
-                    alignItems='center'
-                    alignContent='center'
-                    height='60px'
-                    marginRight='10px'
-                >
-                    <ReleaseButton
-                        device={device}
-                        isAdmin={isAdmin}
-                    ></ReleaseButton>
-                    <UseButton device={device}></UseButton>
+                <Stack direction='row' spacing={1} justifyContent='flex-end' alignItems='center' alignContent='center' height='60px' marginRight='10px'>
+                    <ReleaseButton device={device} isAdmin={isAdmin} />
+                    <UseButton device={device} />
                 </Stack>
             </Stack>
         </Box>
