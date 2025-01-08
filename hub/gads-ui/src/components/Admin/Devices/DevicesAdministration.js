@@ -165,6 +165,7 @@ function NewDevice({ providers, handleGetDeviceData }) {
                             >
                                 <MenuItem value='android'>Android</MenuItem>
                                 <MenuItem value='ios'>iOS</MenuItem>
+                                <MenuItem value='tizen'>Tizen</MenuItem>
                             </TextField>
                         </FormControl>
                     </Tooltip>
@@ -476,6 +477,7 @@ function ExistingDevice({ deviceData, providersData, handleGetDeviceData }) {
                             >
                                 <MenuItem value='android'>Android</MenuItem>
                                 <MenuItem value='ios'>iOS</MenuItem>
+                                <MenuItem value='tizen'>Tizen</MenuItem>
                             </TextField>
                         </FormControl>
                     </Tooltip>

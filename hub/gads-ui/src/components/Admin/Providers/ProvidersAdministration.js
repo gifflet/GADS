@@ -65,6 +65,8 @@ function NewProvider({ handleGetProvidersData }) {
     const [port, setPort] = useState(0)
     const [ios, setIos] = useState(false)
     const [android, setAndroid] = useState(false)
+    const [tizen, setTizen] = useState(false)
+    const [wdaRepoPath, setWdaRepoPath] = useState('')
     const [wdaBundleId, setWdaBundleId] = useState('')
     const [useCustomWda, setUseCustomWda] = useState(false)
     const [useSeleniumGrid, setUseSeleniumGrid] = useState(false)
@@ -81,6 +83,7 @@ function NewProvider({ handleGetProvidersData }) {
         body.port = port
         body.provide_android = android
         body.provide_ios = ios
+        body.provide_tizen = tizen
         if (ios) {
             body.wda_bundle_id = wdaBundleId
             body.use_custom_wda = useCustomWda
@@ -133,7 +136,7 @@ function NewProvider({ handleGetProvidersData }) {
     }
 
     return (
-        <Box className='provider-box'>
+        <Box className='add-provider-box'>
             <form onSubmit={handleAddProvider}>
                 <Stack spacing={2} className='provider-box-stack'>
                     <Tooltip
@@ -229,6 +232,25 @@ function NewProvider({ handleGetProvidersData }) {
                                 onChange={(e) => setAndroid(e.target.value)}
                                 select
                                 label='Provide Android?'
+                                required
+                                size='small'
+                            >
+                                <MenuItem value={true}>Yes</MenuItem>
+                                <MenuItem value={false}>No</MenuItem>
+                            </TextField>
+                        </FormControl>
+                    </Tooltip>
+                    <Tooltip
+                        title='Should the provider set up Tizen devices?'
+                        arrow
+                        placement='top'
+                    >
+                        <FormControl fullWidth required>
+                            <TextField
+                                value={tizen}
+                                onChange={(e) => setTizen(e.target.value)}
+                                select
+                                label='Provide Tizen?'
                                 required
                                 size='small'
                             >
@@ -356,6 +378,8 @@ function ExistingProvider({ providerData, handleGetProvidersData }) {
     const [port, setPort] = useState(providerData.port)
     const [ios, setIos] = useState(providerData.provide_ios)
     const [android, setAndroid] = useState(providerData.provide_android)
+    const [tizen, setTizen] = useState(providerData.provide_tizen)
+    const [wdaRepoPath, setWdaRepoPath] = useState(providerData.wda_repo_path)
     const [wdaBundleId, setWdaBundleId] = useState(providerData.wda_bundle_id)
     const [useCustomWda, setUseCustomWda] = useState(providerData.use_custom_wda)
     const [useSeleniumGrid, setUseSeleniumGrid] = useState(providerData.use_selenium_grid)
@@ -388,6 +412,7 @@ function ExistingProvider({ providerData, handleGetProvidersData }) {
         body.port = port
         body.provide_android = android
         body.provide_ios = ios
+        body.provide_tizen = tizen
         if (ios) {
             body.wda_bundle_id = wdaBundleId
             body.use_custom_wda = useCustomWda
@@ -443,7 +468,7 @@ function ExistingProvider({ providerData, handleGetProvidersData }) {
     }
 
     return (
-        <Box className='provider-box'>
+        <Box className='existing-provider-box'>
             <form onSubmit={handleUpdateProvider}>
                 <Stack spacing={2} className='provider-box-stack'>
                     <Tooltip
@@ -541,6 +566,25 @@ function ExistingProvider({ providerData, handleGetProvidersData }) {
                                 onChange={(e) => setAndroid(e.target.value)}
                                 select
                                 label='Provide Android?'
+                                required
+                                size='small'
+                            >
+                                <MenuItem value={true}>Yes</MenuItem>
+                                <MenuItem value={false}>No</MenuItem>
+                            </TextField>
+                        </FormControl>
+                    </Tooltip>
+                    <Tooltip
+                        title='Should the provider set up Tizen devices?'
+                        arrow
+                        placement='top'
+                    >
+                        <FormControl fullWidth required>
+                            <TextField
+                                value={tizen}
+                                onChange={(e) => setTizen(e.target.value)}
+                                select
+                                label='Provide Tizen?'
                                 required
                                 size='small'
                             >

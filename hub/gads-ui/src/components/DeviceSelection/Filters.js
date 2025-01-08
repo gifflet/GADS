@@ -24,6 +24,7 @@ export function OSFilterTabs({ currentTabIndex, handleTabChange }) {
             <Tab label='All' />
             <Tab label='Android' />
             <Tab label='iOS' />
+            <Tab label='Tizen' />
         </Tabs>
     )
 }
