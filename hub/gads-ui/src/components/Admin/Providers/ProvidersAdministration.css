@@ -16,12 +16,22 @@
     width: 100%;
 }
 
-.provider-box {
+.add-provider-box {
     border: 1px solid black;
     width: 400px;
     min-width: 400px;
     max-width: 400px;
     height: 850px;
+    border-radius: 5px;
+    background-color: #9ba984
+}
+
+.existing-provider-box {
+    border: 1px solid black;
+    width: 400px;
+    min-width: 400px;
+    max-width: 400px;
+    height: 900px;
     border-radius: 5px;
     background-color: #9ba984
 }
