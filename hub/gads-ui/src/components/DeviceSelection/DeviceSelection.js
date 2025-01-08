@@ -166,6 +166,14 @@ function OSSelection({ devices }) {
                                                 />
                                             </Grid>
                                         )
+                                    } else if (currentTabIndex === 3 && device.info.os === 'tizen') {
+                                        return (
+                                            <Grid item>
+                                                <DeviceBox
+                                                    device={device}
+                                                />
+                                            </Grid>
+                                        )
                                     }
                                 })
                             }
