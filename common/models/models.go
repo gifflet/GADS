@@ -18,6 +18,8 @@ type CustomLogger interface {
 	LogWarn(eventName string, message string)
 	LogFatal(eventName string, message string)
 	LogPanic(eventName string, message string)
+	LogDeviceDisconnection(deviceID string, reason string)
+	LogDeviceConnection(deviceID string, reason string)
 }
 
 type AppiumLogger interface {
@@ -64,23 +66,24 @@ type Device struct {
 	InstalledApps []string `json:"installed_apps" bson:"-"`  // list of installed apps on device
 	UsesCustomWDA bool     `json:"uses_custom_wda" bson:"-"` // Flag for iOS device if provider sets up custom WDA
 	///// NON-RETURNABLE VALUES
-	AppiumSessionID  string             `json:"-" bson:"-"` // current Appium session ID
-	WDASessionID     string             `json:"-" bson:"-"` // current WebDriverAgent session ID
-	AppiumPort       string             `json:"-" bson:"-"` // port assigned to the device for the Appium server
-	StreamPort       string             `json:"-" bson:"-"` // port assigned to the device for the video stream
-	WDAStreamPort    string             `json:"-" bson:"-"` // port assigned to iOS devices for the WebDriverAgent stream
-	WDAPort          string             `json:"-" bson:"-"` // port assigned to iOS devices for the WebDriverAgent instance
-	WdaReadyChan     chan bool          `json:"-" bson:"-"` // channel for checking that WebDriverAgent is up after start
-	AppiumReadyChan  chan bool          `json:"-" bson:"-"` // channel for checking that Appium is up after start
-	Context          context.Context    `json:"-" bson:"-"` // context used to control the device set up since we have multiple goroutines
-	CtxCancel        context.CancelFunc `json:"-" bson:"-"` // cancel func for the context above, can be used to stop all running device goroutines
-	GoIOSDeviceEntry ios.DeviceEntry    `json:"-" bson:"-"` // `go-ios` device entry object used for `go-ios` library interactions
-	Logger           CustomLogger       `json:"-" bson:"-"` // CustomLogger object for the device
-	AppiumLogger     AppiumLogger       `json:"-" bson:"-"` // AppiumLogger object for logging appium actions
-	Mutex            sync.Mutex         `json:"-" bson:"-"` // Mutex to lock resources - especially on device reset
-	GoIOSTunnel      tunnel.Tunnel      `json:"-" bson:"-"` // Tunnel obj for go-ios handling of iOS 17.4+
-	SemVer           *semver.Version    `json:"-" bson:"-"` // Semantic version of device for checks around the provider
-	InitialSetupDone bool               `json:"-" bson:"-"` // On provider startup some data is prepared for devices like logger, Mongo collection, etc. This is true if all is done
+	AppiumSessionID       string             `json:"-" bson:"-"` // current Appium session ID
+	WDASessionID          string             `json:"-" bson:"-"` // current WebDriverAgent session ID
+	AppiumPort            string             `json:"-" bson:"-"` // port assigned to the device for the Appium server
+	StreamPort            string             `json:"-" bson:"-"` // port assigned to the device for the video stream
+	WDAStreamPort         string             `json:"-" bson:"-"` // port assigned to iOS devices for the WebDriverAgent stream
+	WDAPort               string             `json:"-" bson:"-"` // port assigned to iOS devices for the WebDriverAgent instance
+	WdaReadyChan          chan bool          `json:"-" bson:"-"` // channel for checking that WebDriverAgent is up after start
+	AppiumReadyChan       chan bool          `json:"-" bson:"-"` // channel for checking that Appium is up after start
+	Context               context.Context    `json:"-" bson:"-"` // context used to control the device set up since we have multiple goroutines
+	CtxCancel             context.CancelFunc `json:"-" bson:"-"` // cancel func for the context above, can be used to stop all running device goroutines
+	GoIOSDeviceEntry      ios.DeviceEntry    `json:"-" bson:"-"` // `go-ios` device entry object used for `go-ios` library interactions
+	Logger                CustomLogger       `json:"-" bson:"-"` // CustomLogger object for the device
+	AppiumLogger          AppiumLogger       `json:"-" bson:"-"` // AppiumLogger object for logging appium actions
+	Mutex                 sync.Mutex         `json:"-" bson:"-"` // Mutex to lock resources - especially on device reset
+	GoIOSTunnel           tunnel.Tunnel      `json:"-" bson:"-"` // Tunnel obj for go-ios handling of iOS 17.4+
+	SemVer                *semver.Version    `json:"-" bson:"-"` // Semantic version of device for checks around the provider
+	InitialSetupDone      bool               `json:"-" bson:"-"` // On provider startup some data is prepared for devices like logger, Mongo collection, etc. This is true if all is done
+	LastDisconnectionTime int64              `json:"last_disconnection_time" bson:"last_disconnection_time"`
 }
 
 type LocalHubDevice struct {
@@ -118,4 +121,13 @@ type DeviceInUseMessage struct {
 type DBFile struct {
 	FileName   string             `json:"name" bson:"filename"`
 	UploadDate primitive.DateTime `json:"upload_date" bson:"uploadDate"`
+}
+
+type CriticalEvent struct {
+	Timestamp   int64  `json:"ts" bson:"ts"`
+	EventType   string `json:"event_type" bson:"event_type"`
+	DeviceID    string `json:"device_id,omitempty" bson:"device_id,omitempty"`
+	Provider    string `json:"provider" bson:"provider"`
+	Description string `json:"description" bson:"description"`
+	StackTrace  string `json:"stack_trace,omitempty" bson:"stack_trace,omitempty"`
 }

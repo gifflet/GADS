@@ -79,7 +79,9 @@ func DeviceGetClipboard(c *gin.Context) {
 	// Send the request
 	clipboardResponse, err := appiumGetClipboard(device)
 	if err != nil {
-		device.Logger.LogError("appium_interact", fmt.Sprintf("Failed to get device clipboard value - %s", err))
+		reason := fmt.Sprintf("Failed to get device clipboard value - %s", err)
+		devices.ResetLocalDeviceWithReason(device, reason)
+		device.Logger.LogError("appium_interact", reason)
 		c.String(http.StatusInternalServerError, "")
 		return
 	}

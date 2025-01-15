@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"GADS/common/db"
+	"GADS/common/models"
 	"GADS/provider/config"
+
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
@@ -72,6 +74,42 @@ func (l CustomLogger) LogPanic(eventName string, message string) {
 	l.WithFields(log.Fields{
 		"event": eventName,
 	}).Panic(message)
+}
+
+func (l CustomLogger) LogDeviceDisconnection(deviceID string, reason string) {
+	event := models.CriticalEvent{
+		Timestamp:   time.Now().UnixMilli(),
+		EventType:   "device_disconnection",
+		DeviceID:    deviceID,
+		Provider:    config.ProviderConfig.Nickname,
+		Description: reason,
+	}
+
+	collection := db.MongoClient().Database("critical_events").Collection("device_connections")
+	_, err := collection.InsertOne(context.TODO(), event)
+	if err != nil {
+		l.LogError("critical_events", fmt.Sprintf("Failed to log device disconnection: %v", err))
+	}
+
+	l.LogError("device_connection", fmt.Sprintf("Device %s disconnected: %s", deviceID, reason))
+}
+
+func (l CustomLogger) LogDeviceConnection(deviceID string, reason string) {
+	event := models.CriticalEvent{
+		Timestamp:   time.Now().UnixMilli(),
+		EventType:   "device_connection",
+		DeviceID:    deviceID,
+		Provider:    config.ProviderConfig.Nickname,
+		Description: reason,
+	}
+
+	collection := db.MongoClient().Database("critical_events").Collection("device_connections")
+	_, err := collection.InsertOne(context.TODO(), event)
+	if err != nil {
+		l.LogError("critical_events", fmt.Sprintf("Failed to log device connection: %v", err))
+	}
+
+	l.LogError("device_connection", fmt.Sprintf("Device %s connected: %s", deviceID, reason))
 }
 
 func CreateCustomLogger(logFilePath, collection string) (*CustomLogger, error) {

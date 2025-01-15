@@ -35,8 +35,9 @@ func goIosForward(device *models.Device, hostPort string, devicePort string) {
 
 	cl, err := forward.Forward(device.GoIOSDeviceEntry, uint16(hostPortInt), uint16(devicePortInt))
 	if err != nil {
-		logger.ProviderLogger.LogError("ios_device_setup", fmt.Sprintf("Failed to forward device port %s to host port %s for device `%s` - %s", devicePort, hostPort, device.UDID, err))
-		resetLocalDevice(device)
+		reason := fmt.Sprintf("Failed to forward device port %s to host port %s for device `%s` - %s", devicePort, hostPort, device.UDID, err)
+		logger.ProviderLogger.LogError("ios_device_setup", reason)
+		ResetLocalDeviceWithReason(device, reason)
 		return
 	}
 
@@ -62,13 +63,13 @@ func startWdaWithXcodebuild(device *models.Device) {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		device.Logger.LogError("webdriveragent_xcodebuild", fmt.Sprintf("startWdaWithXcodebuild: Error creating stdoutpipe while running WebDriverAgent with xcodebuild for device `%v` - %v", device.UDID, err))
-		resetLocalDevice(device)
+		ResetLocalDevice(device)
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
 		device.Logger.LogError("webdriveragent_xcodebuild", fmt.Sprintf("startWdaWithXcodebuild: Could not start WebDriverAgent with xcodebuild for device `%v` - %v", device.UDID, err))
-		resetLocalDevice(device)
+		ResetLocalDevice(device)
 		return
 	}
 
@@ -80,14 +81,14 @@ func startWdaWithXcodebuild(device *models.Device) {
 		//device.Logger.LogInfo("webdriveragent", strings.TrimSpace(line))
 
 		if strings.Contains(line, "Restarting after") {
-			resetLocalDevice(device)
+			ResetLocalDevice(device)
 			return
 		}
 	}
 
 	if err := cmd.Wait(); err != nil {
 		device.Logger.LogError("webdriveragent_xcodebuild", fmt.Sprintf("startWdaWithXcodebuild: Error waiting for WebDriverAgent(xcodebuild) command to finish, it errored out or device `%v` was disconnected - %v", device.UDID, err))
-		resetLocalDevice(device)
+		ResetLocalDevice(device)
 	}
 }
 
@@ -197,14 +198,14 @@ func mountDeveloperImageIOS(device *models.Device) {
 	path, err := imagemounter.DownloadImageFor(device.GoIOSDeviceEntry, basedir)
 	if err != nil {
 		logger.ProviderLogger.LogError("ios_device_setup", fmt.Sprintf("Failed to download DDI for device `%s` to path `%s` - %s", device.UDID, basedir, err))
-		resetLocalDevice(device)
+		ResetLocalDevice(device)
 		return
 	}
 
 	err = imagemounter.MountImage(device.GoIOSDeviceEntry, path)
 	if err != nil {
 		logger.ProviderLogger.LogError("ios_device_setup", fmt.Sprintf("Failed to mount DDI on device `%s` from path `%s` - %s", device.UDID, path, err))
-		resetLocalDevice(device)
+		ResetLocalDevice(device)
 	}
 }
 
@@ -374,7 +375,7 @@ func runWDAGoIOS(device *models.Device) {
 		context.Background(),
 		testConfig)
 	if err != nil {
-		resetLocalDevice(device)
+		ResetLocalDevice(device)
 	}
 }
 
