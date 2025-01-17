@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/Masterminds/semver"
 	"github.com/danielpaulus/go-ios/ios"
@@ -118,4 +119,17 @@ type DeviceInUseMessage struct {
 type DBFile struct {
 	FileName   string             `json:"name" bson:"filename"`
 	UploadDate primitive.DateTime `json:"upload_date" bson:"uploadDate"`
+}
+
+type GlobalSettings struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty"`
+	Type        string             `json:"type" bson:"type"`
+	Settings    interface{}        `json:"settings" bson:"settings"`
+	LastUpdated time.Time          `json:"last_updated" bson:"last_updated"`
+}
+
+type StreamSettings struct {
+	TargetFPS     int `json:"target_fps" bson:"target_fps"`
+	JpegQuality   int `json:"jpeg_quality" bson:"jpeg_quality"`
+	ScalingFactor int `json:"scaling_factor" bson:"scaling_factor"`
 }

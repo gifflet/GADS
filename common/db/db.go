@@ -508,3 +508,58 @@ func UploadFileGridFS(file io.Reader, fileName string, force bool) error {
 		return nil
 	}
 }
+
+func GetGlobalStreamSettings() (models.StreamSettings, error) {
+	var globalSettings models.GlobalSettings
+	var streamSettings models.StreamSettings
+
+	coll := mongoClient.Database("gads").Collection("global_settings")
+	filter := bson.D{{Key: "type", Value: "stream-settings"}}
+
+	err := coll.FindOne(mongoClientCtx, filter).Decode(&globalSettings)
+	if err == mongo.ErrNoDocuments {
+		streamSettings = models.StreamSettings{
+			TargetFPS:     15,
+			JpegQuality:   75,
+			ScalingFactor: 50,
+		}
+
+		err = UpdateGlobalStreamSettings(streamSettings)
+		if err != nil {
+			return streamSettings, err
+		}
+	} else if err != nil {
+		return streamSettings, err
+	} else {
+		settingsBytes, err := bson.Marshal(globalSettings.Settings)
+		if err != nil {
+			return streamSettings, fmt.Errorf("failed to marshal settings: %v", err)
+		}
+
+		err = bson.Unmarshal(settingsBytes, &streamSettings)
+		if err != nil {
+			return streamSettings, fmt.Errorf("failed to unmarshal settings: %v", err)
+		}
+	}
+
+	return streamSettings, nil
+}
+
+func UpdateGlobalStreamSettings(settings models.StreamSettings) error {
+	globalSettings := models.GlobalSettings{
+		Type:        "stream-settings",
+		Settings:    settings,
+		LastUpdated: time.Now(),
+	}
+
+	update := bson.M{
+		"$set": globalSettings,
+	}
+
+	coll := mongoClient.Database("gads").Collection("global_settings")
+	filter := bson.D{{Key: "type", Value: "stream-settings"}}
+	opts := options.Update().SetUpsert(true)
+
+	_, err := coll.UpdateOne(mongoClientCtx, filter, update, opts)
+	return err
+}

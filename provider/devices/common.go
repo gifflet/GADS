@@ -108,9 +108,12 @@ func setupDevices() {
 		dbDevice.LastUpdatedTimestamp = 0
 		dbDevice.IsResetting = false
 		dbDevice.InitialSetupDone = false
-		dbDevice.StreamTargetFPS = 15
-		dbDevice.StreamJpegQuality = 75
-		dbDevice.StreamScalingFactor = 50
+
+		err := updateDeviceWithGlobalSettings(dbDevice)
+		if err != nil {
+			logger.ProviderLogger.Errorf("setupDevices: Failed to update device `%s` with global settings - %s", dbDevice.UDID, err)
+			continue
+		}
 
 		dbDevice.Host = fmt.Sprintf("%s:%v", config.ProviderConfig.HostAddress, config.ProviderConfig.Port)
 
@@ -907,4 +910,17 @@ func checkAppiumUp(device *models.Device) {
 		}
 		loops++
 	}
+}
+
+func updateDeviceWithGlobalSettings(dbDevice *models.Device) error {
+	globalSettings, err := db.GetGlobalStreamSettings()
+	if err != nil {
+		return fmt.Errorf("failed to get global stream settings: %v", err)
+	}
+
+	dbDevice.StreamTargetFPS = globalSettings.TargetFPS
+	dbDevice.StreamJpegQuality = globalSettings.JpegQuality
+	dbDevice.StreamScalingFactor = globalSettings.ScalingFactor
+
+	return nil
 }
