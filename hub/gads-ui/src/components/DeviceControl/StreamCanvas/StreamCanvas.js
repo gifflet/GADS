@@ -37,11 +37,62 @@ export default function StreamCanvas({ deviceData, shouldShowStream }) {
         streamUrl = `/device/${deviceData.udid}/android-stream-mjpeg`
     }
 
-    const handleOrientationButtonClick = (isPortrait) => {
-        setIsPortrait(isPortrait)
+    const handleChangeOrientation = () => {
+        const newOrientation = isPortrait ? 'LANDSCAPE' : 'PORTRAIT';
+        const deviceURL = `/device/${udid}/orientation`;
+
+        api.post(deviceURL, { orientation: newOrientation })
+            .then((response) => {
+                if (response.data.value.error) {
+                    showSnackbar({
+                        message: response.data.value.message,
+                        severity: 'error',
+                        duration: 3000,
+                    });
+                } else if (response.data.value !== (isPortrait ? 'PORTRAIT' : 'LANDSCAPE')) {
+                    setIsPortrait(!isPortrait);
+                    showSnackbar({
+                        message: `Orientation changed to ${newOrientation}!`,
+                        severity: 'success',
+                        duration: 3000,
+                    });
+                } else {
+                    showSnackbar({
+                        message: 'Orientation remains the same!',
+                        severity: 'info',
+                        duration: 3000,
+                    });
+                }
+            })
+            .catch(() => {
+                showSnackbar({
+                    message: 'Failed to change device orientation!',
+                    severity: 'error',
+                    duration: 3000,
+                });
+            });
     }
 
     useEffect(() => {
+        const getDeviceOrientation = () => {
+            let deviceURL = `/device/${deviceData.udid}/orientation`;
+    
+            api.get(deviceURL)
+                .then(response => {
+                    console.log('Device Orientation:', response.data);
+                    setIsPortrait(response.data === 'PORTRAIT');
+                })
+                .catch(error => {
+                    showSnackbar({
+                        message: 'Failed to get device orientation!',
+                        severity: 'error',
+                        duration: 3000,
+                    });
+                });
+        }
+
+        getDeviceOrientation();
+
         const updateCanvasDimensions = () => {
             let calculatedWidth, calculatedHeight
             if (isPortrait) {
@@ -58,15 +109,7 @@ export default function StreamCanvas({ deviceData, shouldShowStream }) {
             })
         }
 
-        const imgElement = document.getElementById('image-stream')
-
-        // Temporarily remove the stream source
-        imgElement.src = ''
-
         updateCanvasDimensions()
-
-        // Reapply the stream URL after the resize is complete
-        imgElement.src = shouldShowStream ? streamUrl : ''
 
         // Set resize listener
         window.addEventListener('resize', updateCanvasDimensions)
@@ -75,7 +118,7 @@ export default function StreamCanvas({ deviceData, shouldShowStream }) {
             window.stop()
             window.removeEventListener('resize', updateCanvasDimensions)
         }
-    }, [isPortrait])
+    }, [isPortrait, deviceLandscapeScreenRatio, deviceScreenRatio])
 
     const showCustomSnackbarError = (message) => {
         showSnackbar({
@@ -132,35 +175,17 @@ export default function StreamCanvas({ deviceData, shouldShowStream }) {
             >
                 <Grid item>
                     <Tooltip
-                        title='This does not change the orientation of the device itself, just updates the UI if the device orientation is already changed'
+                        title='Change the orientation of the device'
                         arrow
                         placement='top'
                     >
                         <Button
                             variant={'contained'}
                             color={'secondary'}
-                            onClick={() => handleOrientationButtonClick(true)}
-                            disabled={isPortrait}
+                            onClick={handleChangeOrientation}
                             sx={{ width: '100%' }}
                         >
-                            Portrait
-                        </Button>
-                    </Tooltip>
-                </Grid>
-                <Grid item>
-                    <Tooltip
-                        title='This does not change the orientation of the device itself, just updates the UI if the device orientation is already changed'
-                        arrow
-                        placement='top'
-                    >
-                        <Button
-                            variant={'contained'}
-                            color={'secondary'}
-                            onClick={() => handleOrientationButtonClick(false)}
-                            disabled={!isPortrait}
-                            sx={{ width: '100%' }}
-                        >
-                            Landscape
+                            Change Orientation
                         </Button>
                     </Tooltip>
                 </Grid>

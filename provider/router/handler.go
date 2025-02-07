@@ -47,6 +47,8 @@ func HandleRequests() *gin.Engine {
 	deviceGroup.POST("/screenshot", DeviceScreenshot)
 	deviceGroup.POST("/swipe", DeviceSwipe)
 	deviceGroup.GET("/appiumSource", DeviceAppiumSource)
+	deviceGroup.GET("/orientation", DeviceOrientation)
+	deviceGroup.POST("/orientation", SetDeviceOrientation)
 	deviceGroup.POST("/typeText", DeviceTypeText)
 	deviceGroup.POST("/clearText", DeviceClearText)
 	deviceGroup.GET("/getClipboard", DeviceGetClipboard)
