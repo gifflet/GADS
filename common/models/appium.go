@@ -42,6 +42,10 @@ type AppiumTypeText struct {
 	Text string `json:"text"`
 }
 
+type AppiumOrientation struct {
+	Orientation string `json:"orientation"`
+}
+
 type AndroidKeycodePayload struct {
 	Keycode int `json:"keycode"`
 }

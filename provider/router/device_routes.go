@@ -214,6 +214,78 @@ func DeviceAppiumSource(c *gin.Context) {
 }
 
 //=======================================
+// Device Orientation
+
+func DeviceOrientation(c *gin.Context) {
+	udid := c.Param("udid")
+	device := devices.DBDeviceMap[udid]
+	device.Logger.LogInfo("appium_interact", "Getting Device Orientation from appium session")
+
+	getOrientationResp, err := appiumGetOrientation(device)
+	if err != nil {
+		device.Logger.LogError("appium_interact", fmt.Sprintf("Failed to get Device Orientation from appium session - %s", err))
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Read the response body
+	body, err := io.ReadAll(getOrientationResp.Body)
+	if err != nil {
+		device.Logger.LogError("appium_interact", fmt.Sprintf("Failed to get Device Orientation from appium session - %s", err))
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer getOrientationResp.Body.Close()
+	// Unmarshal the response to get the value
+	var orientationResp struct {
+		Value string `json:"value"`
+	}
+	err = json.Unmarshal(body, &orientationResp)
+	if err != nil {
+		device.Logger.LogError("appium_interact", fmt.Sprintf("Failed to unmarshal Device Orientation response - %s", err))
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Return only the value
+	c.String(http.StatusOK, orientationResp.Value)
+}
+
+func SetDeviceOrientation(c *gin.Context) {
+	udid := c.Param("udid")
+	device := devices.DBDeviceMap[udid]
+	device.Logger.LogInfo("appium_interact", "Setting Device Orientation")
+
+	var requestBody models.AppiumOrientation
+	if err := json.NewDecoder(c.Request.Body).Decode(&requestBody); err != nil {
+		device.Logger.LogError("appium_interact", fmt.Sprintf("Failed to set the device orientation - %s", err))
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	device.Logger.LogInfo("appium_interact", fmt.Sprintf("Setting Device Orientation to %s", requestBody.Orientation))
+
+	setOrientationResp, err := appiumSetOrientation(device, requestBody)
+	if err != nil {
+		device.Logger.LogError("appium_interact", fmt.Sprintf("Failed to set Device Orientation from appium session - %s", err))
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Read the response body
+	body, err := io.ReadAll(setOrientationResp.Body)
+	if err != nil {
+		device.Logger.LogError("appium_interact", fmt.Sprintf("Failed to set Device Orientation from appium session - %s", err))
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer setOrientationResp.Body.Close()
+
+	// Return the entire response body
+	c.String(http.StatusOK, string(body))
+}
+
+//=======================================
 // ACTIONS
 
 func DeviceTypeText(c *gin.Context) {

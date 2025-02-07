@@ -385,3 +385,17 @@ func appiumGetClipboard(device *models.Device) (*http.Response, error) {
 		return nil, fmt.Errorf("appiumGetClipboard: Bad device OS for device `%s` - %s", device.UDID, device.OS)
 	}
 }
+
+func appiumGetOrientation(device *models.Device) (*http.Response, error) {
+	return appiumRequest(device, http.MethodGet, "orientation", nil)
+}
+
+func appiumSetOrientation(device *models.Device, orientation models.AppiumOrientation) (*http.Response, error) {
+
+	payloadJSON, err := json.MarshalIndent(orientation, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+
+	return appiumRequest(device, http.MethodPost, "orientation", bytes.NewBuffer(payloadJSON))
+}
