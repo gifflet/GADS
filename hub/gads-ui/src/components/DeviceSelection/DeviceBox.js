@@ -13,6 +13,7 @@ import { useSnackbar } from '../../contexts/SnackBarContext'
 
 export default function DeviceBox({ device }) {
     const [isAdmin, setIsAdmin] = useState(false)
+    const { showSnackbar, hideSnackbar } = useSnackbar()
     let img_src = device.info.os === 'android' ? './images/android-logo.png' : 
                   device.info.os === 'ios' ? './images/apple-logo.png' : 
                   './images/tizen-logo.png';
