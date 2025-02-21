@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"GADS/common/cli"
 	"GADS/common/models"
 	"GADS/provider/logger"
 	"GADS/provider/providerutil"
@@ -52,6 +53,13 @@ type TizenDevice struct {
 func setupTizenDevice(device *models.Device) {
 	device.ProviderState = "preparing"
 	logger.ProviderLogger.LogInfo("tizen_device_setup", fmt.Sprintf("Running setup for Tizen device `%v`", device.UDID))
+
+	err := cli.KillDeviceAppiumProcess(device.UDID)
+	if err != nil {
+		logger.ProviderLogger.LogError("tizen_device_setup", fmt.Sprintf("Failed attempt to kill existing Appium processes for device `%s` - %v", device.UDID, err))
+		resetLocalDevice(device, "Failed to kill existing Appium processes.")
+		return
+	}
 
 	appiumPort, err := providerutil.GetFreePort()
 	if err != nil {
