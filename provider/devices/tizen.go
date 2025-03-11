@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"GADS/common/cli"
@@ -54,17 +55,20 @@ func setupTizenDevice(device *models.Device) {
 	device.ProviderState = "preparing"
 	logger.ProviderLogger.LogInfo("tizen_device_setup", fmt.Sprintf("Running setup for Tizen device `%v`", device.UDID))
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	err := cli.KillDeviceAppiumProcess(device.UDID)
 	if err != nil {
 		logger.ProviderLogger.LogError("tizen_device_setup", fmt.Sprintf("Failed attempt to kill existing Appium processes for device `%s` - %v", device.UDID, err))
-		resetLocalDevice(device, "Failed to kill existing Appium processes.")
+		ResetLocalDevice(device, "Failed to kill existing Appium processes.")
 		return
 	}
 
 	appiumPort, err := providerutil.GetFreePort()
 	if err != nil {
 		logger.ProviderLogger.LogError("tizen_device_setup", fmt.Sprintf("Could not allocate free host port for Appium for device `%v` - %v", device.UDID, err))
-		resetLocalDevice(device, "Failed to allocate free host port for Appium.")
+		ResetLocalDevice(device, "Failed to allocate free host port for Appium.")
 		return
 	}
 	device.AppiumPort = appiumPort
@@ -72,13 +76,13 @@ func setupTizenDevice(device *models.Device) {
 	err = getTizenTVInfo(device)
 	if err != nil {
 		logger.ProviderLogger.LogError("tizen_device_setup", fmt.Sprintf("Failed to get TV info for device `%v` - %v", device.UDID, err))
-		resetLocalDevice(device, "Failed to retrieve TV information.")
+		ResetLocalDevice(device, "Failed to retrieve TV information.")
 		return
 	}
 
 	device.OS = "tizen"
 
-	go startAppium(device)
+	go startAppium(device, &wg)
 	go checkAppiumUp(device)
 
 	select {
@@ -87,12 +91,13 @@ func setupTizenDevice(device *models.Device) {
 		break
 	case <-time.After(30 * time.Second):
 		logger.ProviderLogger.LogError("tizen_device_setup", fmt.Sprintf("Did not successfully start Appium for device `%v` in 60 seconds", device.UDID))
-		resetLocalDevice(device, "Appium did not start within the expected time.")
+		ResetLocalDevice(device, "Appium did not start within the expected time.")
 		return
 	}
 
 	// Mark the device as 'live'
 	device.ProviderState = "live"
+	wg.Wait()
 }
 
 func getTizenTVHost(tvID string) (string, error) {
