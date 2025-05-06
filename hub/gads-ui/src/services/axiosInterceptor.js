@@ -7,11 +7,15 @@ const axiosInterceptor = (logout) => {
             return response
         },
         (error) => {
-            // Check if the error response status is 401 (Unauthorized)
-            if (error.response.status === 401) {
-                localStorage.removeItem('authToken')
+            // Check if the error response exists and has status 401 (Unauthorized)
+            if (error.response && error.response.status === 401) {
+                localStorage.removeItem('accessToken')
                 localStorage.removeItem('userRole')
-                logout()
+                localStorage.removeItem('username')
+                // Call the logout function safely
+                if (typeof logout === 'function') {
+                    logout()
+                }
             }
 
             // Reject the error to propagate it to the request's catch block

@@ -28,9 +28,8 @@ export default function Login() {
         let url = `/authenticate`
         api.post(url, loginData)
             .then(response => {
-                const json = response.data
-                const sessionID = json.sessionID
-                login(sessionID, json.username, json.role)
+                const data = response.data
+                login(data.access_token, data.username, data.role)
                 hideSnackbar()
                 navigate('/devices')
 

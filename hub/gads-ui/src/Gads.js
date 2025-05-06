@@ -13,7 +13,7 @@ import { SnackbarProvider } from './contexts/SnackBarContext'
 import { LoadingOverlayProvider } from './contexts/LoadingOverlayContext'
 
 function Gads() {
-    const { authToken, logout } = useContext(Auth)
+    const { accessToken, logout } = useContext(Auth)
     // Set the logout function from the Auth context on the axiosInterceptor to automatically logout on each 401
     axiosInterceptor(logout)
 
@@ -23,7 +23,7 @@ function Gads() {
         localStorage.setItem('gadsVersion', version)
     }, [])
 
-    if (!authToken) {
+    if (!accessToken) {
         return <Login />
     }
 

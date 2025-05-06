@@ -8,24 +8,24 @@ export const AuthProvider = ({ children }) => {
     const { showSnackbar } = useSnackbar()
     const navigate = useNavigate()
 
-    const [authToken, setAuthToken] = useState('')
+    const [accessToken, setAccessToken] = useState('')
     const [userName, setUserName] = useState('')
     const [userRole, setUserRole] = useState('')
 
     function login(token, name, role) {
-        setAuthToken(token)
+        setAccessToken(token)
         setUserName(name)
         setUserRole(role)
-        localStorage.setItem('authToken', token)
+        localStorage.setItem('accessToken', token)
         localStorage.setItem('userRole', role)
         localStorage.setItem('username', name)
     }
 
     function logout() {
-        setAuthToken(null)
+        setAccessToken(null)
         setUserName('')
         setUserRole('')
-        localStorage.removeItem('authToken')
+        localStorage.removeItem('accessToken')
         localStorage.removeItem('userRole')
         localStorage.removeItem('username')
         showLogoutError()
@@ -40,18 +40,18 @@ export const AuthProvider = ({ children }) => {
     }
 
     useEffect(() => {
-        // Redirect to "/" on logout (when authToken becomes null)
+        // Redirect to "/" on logout (when accessToken becomes null)
         // We have to do it in useEffect because AuthProvider is not a component so we need a hook
-        if (authToken === null) {
+        if (accessToken === null) {
             navigate('/')
         }
-    }, [authToken, navigate])
+    }, [accessToken, navigate])
 
     useEffect(() => {
-        // Check if the auth token exists in localStorage on initial load
-        const storedToken = localStorage.getItem('authToken')
+        // Check if the access token exists in localStorage on initial load
+        const storedToken = localStorage.getItem('accessToken')
         if (storedToken) {
-            setAuthToken(storedToken)
+            setAccessToken(storedToken)
         }
         const storedUsername = localStorage.getItem('username')
         if (storedUsername) {
@@ -60,6 +60,6 @@ export const AuthProvider = ({ children }) => {
     }, [])
 
 
-    return <Auth.Provider value={{ authToken, userName, userRole, login, logout }}>{children}
+    return <Auth.Provider value={{ accessToken, userName, userRole, login, logout }}>{children}
     </Auth.Provider>
 }
