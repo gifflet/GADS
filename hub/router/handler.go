@@ -16,7 +16,7 @@ func HandleRequests(configData *models.HubConfig) *gin.Engine {
 	r := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
-	config.AllowHeaders = []string{"X-Auth-Token", "Content-Type", "Authorization"}
+	config.AllowHeaders = []string{"Authorization", "Content-Type"}
 	r.Use(cors.New(config))
 
 	filesDir := filepath.Join(configData.FilesTempDir, "gads-ui")
