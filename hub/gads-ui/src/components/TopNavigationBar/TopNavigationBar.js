@@ -5,9 +5,10 @@ import { Auth } from '../../contexts/Auth'
 import Button from '@mui/material/Button'
 import { api } from '../../services/api.js'
 import Divider from '@mui/material/Divider'
+import CircularProgress from '@mui/material/CircularProgress'
 
 export default function NavBar() {
-    const { userName } = useContext(Auth)
+    const { userName, loading } = useContext(Auth)
 
     const [showAdmin, setShowAdmin] = useState(false)
 

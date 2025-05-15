@@ -9,6 +9,7 @@ import ProvidersAdministration from './Providers/ProvidersAdministration';
 import GlobalSettings from './GlobalSettings/GlobalSettings';
 import WebRTCClient from './webrtc';
 import WorkspacesAdministration from './Workspaces/WorkspacesAdministration';
+import SecretKeys from './SecretKeys';
 
 export default function AdminDashboard() {
     const [currentTabIndex, setCurrentTabIndex] = useState(0)
@@ -88,6 +89,14 @@ export default function AdminDashboard() {
                         fontWeight: "bold"
                     }}
                 />
+                <Tab
+                    label="Secret Keys"
+                    style={{
+                        textTransform: 'none',
+                        fontSize: '16px',
+                        fontWeight: "bold"
+                    }}
+                />
                 {/* this tab is for testing webrtc */}
                 {/* <Tab
                     label="OPALQ"
@@ -104,7 +113,8 @@ export default function AdminDashboard() {
             {currentTabIndex === 3 && <FilesAdministration></FilesAdministration>}
             {currentTabIndex === 4 && <GlobalSettings></GlobalSettings>}
             {currentTabIndex === 5 && <WorkspacesAdministration></WorkspacesAdministration>}
-            {/* {currentTabIndex === 5 && <WebRTCClient></WebRTCClient>} */}
+            {currentTabIndex === 6 && <SecretKeys></SecretKeys>}
+            {/* {currentTabIndex === 7 && <WebRTCClient></WebRTCClient>} */}
         </Box >
     )
 }
