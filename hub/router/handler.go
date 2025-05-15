@@ -41,6 +41,7 @@ func HandleRequests(configData *models.HubConfig) *gin.Engine {
 	authGroup.POST("/provider-update", ProviderUpdate)
 	// Enable authentication on the endpoints below
 	authGroup.Use(auth.AuthMiddleware())
+	authGroup.GET("/user-info", auth.GetUserInfoHandler)
 	authGroup.GET("/appium-logs", GetAppiumLogs)
 	authGroup.GET("/appium-session-logs", GetAppiumSessionLogs)
 	authGroup.GET("/health", HealthCheck)
