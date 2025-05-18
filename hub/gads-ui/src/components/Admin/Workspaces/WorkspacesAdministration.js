@@ -11,7 +11,7 @@ export default function WorkspacesAdministration() {
     const [loading, setLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
     const [currentWorkspace, setCurrentWorkspace] = useState(null);
-    const [newWorkspace, setNewWorkspace] = useState({ name: '', description: '' });
+    const [newWorkspace, setNewWorkspace] = useState({ name: '', description: '', tenant: '' });
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [totalCount, setTotalCount] = useState(0);
@@ -57,7 +57,7 @@ export default function WorkspacesAdministration() {
     const handleCloseModal = () => {
         setOpenModal(false);
         setCurrentWorkspace(null);
-        setNewWorkspace({ name: '', description: '' });
+        setNewWorkspace({ name: '', description: '', tenant: '' });
     };
 
     const handleUpdateWorkspace = async () => {
@@ -66,6 +66,7 @@ export default function WorkspacesAdministration() {
                 id: currentWorkspace.id,
                 name: currentWorkspace.name,
                 description: currentWorkspace.description,
+                tenant: currentWorkspace.tenant,
             });
             showSnackbar({
                 message: 'Workspace updated successfully!',
@@ -165,6 +166,7 @@ export default function WorkspacesAdministration() {
                                 <TableRow>
                                     <TableCell className="table-header">Workspace Name</TableCell>
                                     <TableCell className="table-header">Description</TableCell>
+                                    <TableCell className="table-header">Tenant</TableCell>
                                     <TableCell className="table-header">Type</TableCell>
                                     <TableCell className="table-header">Actions</TableCell>
                                 </TableRow>
@@ -174,6 +176,7 @@ export default function WorkspacesAdministration() {
                                     <TableRow key={workspace.id}>
                                         <TableCell>{workspace.name}</TableCell>
                                         <TableCell>{workspace.description}</TableCell>
+                                        <TableCell>{workspace.tenant || '-'}</TableCell>
                                         <TableCell>{workspace.is_default ? 'Default' : 'Custom'}</TableCell>
                                         <TableCell>
                                             <Button style={{ marginRight: '10px' }} variant='contained' onClick={() => handleEditWorkspace(workspace)}>
@@ -236,6 +239,18 @@ export default function WorkspacesAdministration() {
                                     }
                                 }}
                                 required
+                            />
+                            <TextField
+                                label='Tenant'
+                                value={currentWorkspace ? (currentWorkspace.tenant || '') : newWorkspace.tenant}
+                                onChange={(e) => {
+                                    if (currentWorkspace) {
+                                        setCurrentWorkspace({ ...currentWorkspace, tenant: e.target.value });
+                                    } else {
+                                        setNewWorkspace({ ...newWorkspace, tenant: e.target.value });
+                                    }
+                                }}
+                                helperText="Optional tenant identifier for multi-tenant environments"
                             />
                             <Stack direction='row' spacing={1}>
                                 <Button variant='contained' onClick={currentWorkspace ? handleUpdateWorkspace : handleCreateWorkspace}>
