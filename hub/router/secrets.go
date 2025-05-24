@@ -48,6 +48,7 @@ func GetSecretKeys(c *gin.Context) {
 			"id":                      key.ID.Hex(),
 			"origin":                  key.Origin,
 			"is_default":              key.IsDefault,
+			"grant_admin_access":      key.GrantAdminAccess,
 			"created_at":              key.CreatedAt,
 			"updated_at":              key.UpdatedAt,
 			"user_identifier_claim":   key.UserIdentifierClaim,
@@ -83,6 +84,7 @@ func AddSecretKey(c *gin.Context) {
 		Origin                string `json:"origin" binding:"required"`
 		Key                   string `json:"key" binding:"required"`
 		IsDefault             bool   `json:"is_default"`
+		GrantAdminAccess      bool   `json:"grant_admin_access"`
 		Justification         string `json:"justification" binding:"required"`
 		UserIdentifierClaim   string `json:"user_identifier_claim"`
 		TenantIdentifierClaim string `json:"tenant_identifier_claim"`
@@ -97,6 +99,7 @@ func AddSecretKey(c *gin.Context) {
 		Origin:                request.Origin,
 		Key:                   request.Key,
 		IsDefault:             request.IsDefault,
+		GrantAdminAccess:      request.GrantAdminAccess,
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),
 		UserIdentifierClaim:   request.UserIdentifierClaim,
@@ -126,6 +129,7 @@ func AddSecretKey(c *gin.Context) {
 		"id":                      secretKey.ID.Hex(),
 		"origin":                  secretKey.Origin,
 		"is_default":              secretKey.IsDefault,
+		"grant_admin_access":      secretKey.GrantAdminAccess,
 		"created_at":              secretKey.CreatedAt,
 		"updated_at":              secretKey.UpdatedAt,
 		"user_identifier_claim":   secretKey.UserIdentifierClaim,
@@ -167,6 +171,7 @@ func UpdateSecretKey(c *gin.Context) {
 	var request struct {
 		Key                   string `json:"key"`
 		IsDefault             bool   `json:"is_default"`
+		GrantAdminAccess      bool   `json:"grant_admin_access"`
 		Justification         string `json:"justification" binding:"required"`
 		UserIdentifierClaim   string `json:"user_identifier_claim"`
 		TenantIdentifierClaim string `json:"tenant_identifier_claim"`
@@ -194,6 +199,7 @@ func UpdateSecretKey(c *gin.Context) {
 		secretKey.Key = request.Key
 	}
 	secretKey.IsDefault = request.IsDefault
+	secretKey.GrantAdminAccess = request.GrantAdminAccess
 	secretKey.UpdatedAt = time.Now()
 	if request.UserIdentifierClaim != "" {
 		secretKey.UserIdentifierClaim = request.UserIdentifierClaim
@@ -220,6 +226,7 @@ func UpdateSecretKey(c *gin.Context) {
 		"id":                      secretKey.ID.Hex(),
 		"origin":                  secretKey.Origin,
 		"is_default":              secretKey.IsDefault,
+		"grant_admin_access":      secretKey.GrantAdminAccess,
 		"created_at":              secretKey.CreatedAt,
 		"updated_at":              secretKey.UpdatedAt,
 		"user_identifier_claim":   secretKey.UserIdentifierClaim,

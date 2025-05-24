@@ -32,18 +32,18 @@ type SecretStoreInterface interface {
 // SecretCache provides an in-memory cache for secret keys
 type SecretCache struct {
 	store        SecretStoreInterface
-	keys         map[string][]byte // Map of origin to key
-	defaultKey   []byte            // Default key
-	mutex        sync.RWMutex      // To protect concurrent access
-	lastRefresh  time.Time         // Time of last cache refresh
-	refreshEvery time.Duration     // How often to refresh the cache
+	keys         map[string]*SecretKey // Map of origin to complete SecretKey
+	defaultKey   *SecretKey            // Default key object
+	mutex        sync.RWMutex          // To protect concurrent access
+	lastRefresh  time.Time             // Time of last cache refresh
+	refreshEvery time.Duration         // How often to refresh the cache
 }
 
 // NewSecretCache creates a new secret key cache
 func NewSecretCache(store SecretStoreInterface, refreshInterval time.Duration) *SecretCache {
 	cache := &SecretCache{
 		store:        store,
-		keys:         make(map[string][]byte),
+		keys:         make(map[string]*SecretKey),
 		refreshEvery: refreshInterval,
 	}
 
@@ -118,16 +118,16 @@ func (c *SecretCache) Refresh() error {
 	}
 
 	// Clear the current cache
-	c.keys = make(map[string][]byte)
+	c.keys = make(map[string]*SecretKey)
 	c.defaultKey = nil
 
 	// Populate the cache with the fresh data
 	for _, secretKey := range secretKeys {
-		c.keys[secretKey.Origin] = []byte(secretKey.Key)
+		c.keys[secretKey.Origin] = secretKey
 
 		// Set default key if this is the default
 		if secretKey.IsDefault {
-			c.defaultKey = []byte(secretKey.Key)
+			c.defaultKey = secretKey
 		}
 	}
 
@@ -151,15 +151,18 @@ func (c *SecretCache) GetKey(origin string) []byte {
 
 	// Check if we have a key for this origin
 	if key, exists := c.keys[origin]; exists {
-		return key
+		return []byte(key.Key)
 	}
 
 	// Otherwise return the default key
-	return c.defaultKey
+	if c.defaultKey != nil {
+		return []byte(c.defaultKey.Key)
+	}
+	return nil
 }
 
 // GetDefaultKey returns the default secret key
-func (c *SecretCache) GetDefaultKey() []byte {
+func (c *SecretCache) GetDefaultKey() *SecretKey {
 	// Check if refresh is needed
 	if time.Since(c.lastRefresh) > c.refreshEvery {
 		// Non-blocking refresh attempt
@@ -170,6 +173,47 @@ func (c *SecretCache) GetDefaultKey() []byte {
 	defer c.mutex.RUnlock()
 
 	return c.defaultKey
+}
+
+// GetSecretKey returns the complete SecretKey object for a given origin
+// If the origin doesn't have a specific key, returns the default key
+func (c *SecretCache) GetSecretKey(origin string) *SecretKey {
+	// Check if refresh is needed
+	if time.Since(c.lastRefresh) > c.refreshEvery {
+		// Non-blocking refresh attempt
+		go c.Refresh()
+	}
+
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	// Check if we have a key for this origin
+	if key, exists := c.keys[origin]; exists {
+		return key
+	}
+
+	// Otherwise return the default key
+	return c.defaultKey
+}
+
+// GetSecretKeyByOrigin returns the complete SecretKey object for a given origin
+// Returns nil if not found (doesn't fallback to default)
+func (c *SecretCache) GetSecretKeyByOrigin(origin string) *SecretKey {
+	// Check if refresh is needed
+	if time.Since(c.lastRefresh) > c.refreshEvery {
+		// Non-blocking refresh attempt
+		go c.Refresh()
+	}
+
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	// Return the key for this origin if it exists
+	if key, exists := c.keys[origin]; exists {
+		return key
+	}
+
+	return nil
 }
 
 // generateRandomKey creates a secure random key with the specified number of bytes

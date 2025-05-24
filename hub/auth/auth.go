@@ -126,9 +126,32 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 
-	// Define scopes based on user permissions
+	// Get the request origin
+	origin := GetOriginFromRequest(c)
+
+	// Check if the origin has grant_admin_access enabled
+	var grantAdminAccess bool
+	cache := GetSecretCache()
+	if cache != nil {
+		secretKey := cache.GetSecretKeyByOrigin(origin)
+		if secretKey == nil {
+			// If no specific key found for origin, try default key
+			secretKey = cache.GetDefaultKey()
+		}
+		if secretKey != nil {
+			grantAdminAccess = secretKey.GrantAdminAccess
+		}
+	}
+
+	// Define user role - grant admin if origin has grant_admin_access enabled
+	userRole := user.Role
+	if grantAdminAccess {
+		userRole = "admin"
+	}
+
+	// Define scopes based on effective user permissions
 	scopes := []string{"user"}
-	if user.Role == "admin" {
+	if userRole == "admin" {
 		scopes = append(scopes, "admin")
 	}
 
@@ -138,11 +161,8 @@ func LoginHandler(c *gin.Context) {
 		tenant = user.WorkspaceIDs[0]
 	}
 
-	// Get the request origin
-	origin := GetOriginFromRequest(c)
-
-	// Generate JWT token with 1 hour validity
-	token, err := GenerateJWT(user.Username, user.Role, tenant, scopes, time.Hour, origin)
+	// Generate JWT token with 1 hour validity using effective role
+	token, err := GenerateJWT(user.Username, userRole, tenant, scopes, time.Hour, origin)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -154,7 +174,7 @@ func LoginHandler(c *gin.Context) {
 		"token_type":   "Bearer",
 		"expires_in":   3600, // 1 hour in seconds
 		"username":     user.Username,
-		"role":         user.Role,
+		"role":         userRole,
 	})
 }
 
@@ -272,10 +292,34 @@ func GetUserInfoHandler(c *gin.Context) {
 		role = "user"
 	}
 
+	// Check if the origin has grant_admin_access enabled and upgrade role if needed
+	if role != "admin" {
+		var grantAdminAccess bool
+		cache := GetSecretCache()
+		if cache != nil {
+			secretKey := cache.GetSecretKeyByOrigin(origin)
+			if secretKey == nil {
+				// fallback to default
+				secretKey = cache.GetDefaultKey()
+			}
+			if secretKey != nil {
+				grantAdminAccess = secretKey.GrantAdminAccess
+			}
+		}
+
+		// Upgrade role to admin if origin grants admin access
+		if grantAdminAccess {
+			role = "admin"
+		}
+	}
+
 	// Define default scopes if not set
 	scopes := claims.Scope
 	if len(scopes) == 0 {
 		scopes = []string{"user"}
+		if role == "admin" {
+			scopes = append(scopes, "admin")
+		}
 	}
 
 	// Return user information from claims
@@ -323,10 +367,27 @@ func AuthMiddleware() gin.HandlerFunc {
 				return
 			}
 
-			// Check permissions (admin)
+			// Check permissions for admin endpoints
 			if strings.Contains(path, "admin") && claims.Role != "admin" {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "you need admin privileges to access this endpoint"})
-				return
+				// Check if the origin has grant_admin_access enabled
+				var grantAdminAccess bool
+				cache := GetSecretCache()
+				if cache != nil {
+					secretKey := cache.GetSecretKeyByOrigin(origin)
+					if secretKey == nil {
+						// If no specific key found for origin, try default key
+						secretKey = cache.GetDefaultKey()
+					}
+					if secretKey != nil {
+						grantAdminAccess = secretKey.GrantAdminAccess
+					}
+				}
+
+				// Block access if neither user role nor origin grants admin access
+				if !grantAdminAccess {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "you need admin privileges to access this endpoint"})
+					return
+				}
 			}
 
 			// Store user information in context for later use
