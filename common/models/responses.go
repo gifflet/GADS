@@ -29,6 +29,7 @@ type SecretKeyResponse struct {
 	ID                    string `json:"id" example:"507f1f77bcf86cd799439011"`
 	Origin                string `json:"origin" example:"web.example.com"`
 	IsDefault             bool   `json:"is_default" example:"false"`
+	GrantAdminAccess      bool   `json:"grant_admin_access" example:"false"`
 	CreatedAt             string `json:"created_at" example:"2023-01-01T00:00:00Z"`
 	UpdatedAt             string `json:"updated_at" example:"2023-01-01T00:00:00Z"`
 	UserIdentifierClaim   string `json:"user_identifier_claim" example:"username"`
@@ -40,6 +41,7 @@ type SecretKeyRequest struct {
 	Origin                string `json:"origin" example:"web.example.com"`
 	Key                   string `json:"key" example:"your_secret_key_here"`
 	IsDefault             bool   `json:"is_default" example:"false"`
+	GrantAdminAccess      bool   `json:"grant_admin_access" example:"false"`
 	Justification         string `json:"justification" example:"Adding new key for web client"`
 	UserIdentifierClaim   string `json:"user_identifier_claim,omitempty" example:"username"`
 	TenantIdentifierClaim string `json:"tenant_identifier_claim,omitempty" example:"tenant"`
