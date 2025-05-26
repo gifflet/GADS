@@ -105,7 +105,7 @@ func getDefaultSecretKey() ([]byte, error) {
 		return nil, ErrDefaultKeyRequired
 	}
 
-	return key, nil
+	return []byte(key.Key), nil
 }
 
 // GenerateJWT generates a JWT token using HS256 with the appropriate secret key

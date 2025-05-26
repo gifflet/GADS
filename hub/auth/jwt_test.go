@@ -376,8 +376,9 @@ func TestSecretCache(t *testing.T) {
 	assert.Equal(t, []byte("default_secret_key"), key)
 
 	// Test GetDefaultKey
-	key = cache.GetDefaultKey()
-	assert.Equal(t, []byte("default_secret_key"), key)
+	defaultKey := cache.GetDefaultKey()
+	assert.NotNil(t, defaultKey)
+	assert.Equal(t, []byte("default_secret_key"), []byte(defaultKey.Key))
 
 	// Add a new key and test GetKey
 	store.AddSecretKey(&SecretKey{
@@ -392,6 +393,22 @@ func TestSecretCache(t *testing.T) {
 	// Test GetKey for specific origin
 	key = cache.GetKey("test-origin")
 	assert.Equal(t, []byte("test_secret_key"), key)
+
+	// Test GetSecretKey method (returns complete SecretKey object)
+	secretKey := cache.GetSecretKey("test-origin")
+	assert.NotNil(t, secretKey)
+	assert.Equal(t, "test-origin", secretKey.Origin)
+	assert.Equal(t, "test_secret_key", secretKey.Key)
+	assert.False(t, secretKey.IsDefault)
+
+	// Test GetSecretKeyByOrigin method (doesn't fallback to default)
+	secretKey = cache.GetSecretKeyByOrigin("test-origin")
+	assert.NotNil(t, secretKey)
+	assert.Equal(t, "test-origin", secretKey.Origin)
+
+	// Test GetSecretKeyByOrigin with unknown origin (should return nil)
+	secretKey = cache.GetSecretKeyByOrigin("nonexistent-origin")
+	assert.Nil(t, secretKey)
 }
 
 func TestDynamicIdentifierClaims(t *testing.T) {
@@ -448,4 +465,56 @@ func TestDynamicIdentifierClaims(t *testing.T) {
 	// Should use the custom identifier claims
 	assert.Equal(t, "user-from-custom-claim", claims.Username)
 	assert.Equal(t, "tenant-from-custom-claim", claims.Tenant)
+}
+
+func TestGrantAdminAccessFeature(t *testing.T) {
+	// Create mock store
+	store := NewMockSecretStore()
+
+	// Add default key without grant admin access
+	store.AddSecretKey(&SecretKey{
+		Origin:           "default",
+		Key:              "default_secret_key",
+		IsDefault:        true,
+		GrantAdminAccess: false,
+	}, "system", "Test setup")
+
+	// Add a key with grant admin access enabled
+	store.AddSecretKey(&SecretKey{
+		Origin:           "admin-origin",
+		Key:              "admin_secret_key",
+		IsDefault:        false,
+		GrantAdminAccess: true,
+	}, "system", "Test setup")
+
+	// Add a key without grant admin access
+	store.AddSecretKey(&SecretKey{
+		Origin:           "regular-origin",
+		Key:              "regular_secret_key",
+		IsDefault:        false,
+		GrantAdminAccess: false,
+	}, "system", "Test setup")
+
+	// Create cache
+	cache := NewSecretCache(store, time.Minute)
+
+	// Test default key
+	defaultKey := cache.GetDefaultKey()
+	assert.NotNil(t, defaultKey)
+	assert.False(t, defaultKey.GrantAdminAccess)
+
+	// Test admin origin key
+	adminKey := cache.GetSecretKeyByOrigin("admin-origin")
+	assert.NotNil(t, adminKey)
+	assert.True(t, adminKey.GrantAdminAccess)
+
+	// Test regular origin key
+	regularKey := cache.GetSecretKeyByOrigin("regular-origin")
+	assert.NotNil(t, regularKey)
+	assert.False(t, regularKey.GrantAdminAccess)
+
+	// Test GetSecretKey with fallback for unknown origin
+	unknownOriginKey := cache.GetSecretKey("unknown-origin")
+	assert.NotNil(t, unknownOriginKey) // Should fallback to default
+	assert.False(t, unknownOriginKey.GrantAdminAccess)
 }

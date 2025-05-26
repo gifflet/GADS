@@ -29,6 +29,7 @@ type SecretKey struct {
 	Origin                string             `bson:"origin" json:"origin"`
 	Key                   string             `bson:"key" json:"key"`
 	IsDefault             bool               `bson:"is_default" json:"is_default"`
+	GrantAdminAccess      bool               `bson:"grant_admin_access" json:"grant_admin_access"`
 	CreatedAt             time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt             time.Time          `bson:"updated_at" json:"updated_at"`
 	Disabled              bool               `bson:"disabled" json:"disabled"`
