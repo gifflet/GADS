@@ -186,10 +186,10 @@ stages:
         artifact: '$(ARTIFACT_NAME)-$(BUILD_VERSION)'
         properties: |
           {
-            "buildVersion": "$(BUILD_VERSION)",
-            "releaseReady": "true",
-            "sourceBranch": "develop",
-            "buildConfiguration": "$(BUILD_CONFIGURATION)"
+            "user-buildVersion": "$(BUILD_VERSION)",
+            "user-releaseReady": "true",
+            "user-sourceBranch": "develop",
+            "user-buildConfiguration": "$(BUILD_CONFIGURATION)"
           }
       condition: succeeded()
       displayName: 'Publish pipeline artifacts for release' 
