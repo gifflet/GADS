@@ -1,0 +1,191 @@
+# GADS UI CI Pipeline for Azure DevOps
+# Based on the existing GitHub Actions workflow
+
+trigger:
+  branches:
+    include:
+      - develop
+
+# Disable PR triggers
+pr: none
+
+pool:
+  vmImage: 'macOS-latest'
+
+variables:
+  GO_VERSION: '1.23.0'
+  NODE_VERSION: '18'
+  # Build metadata for release pipeline integration
+  BUILD_CONFIGURATION: 'Release'
+  ARTIFACT_NAME: 'gads-build-artifacts'
+  VERSION_PREFIX: 'dev'
+
+stages:
+- stage: BuildAndRelease
+  displayName: 'Build and Release'
+  jobs:
+  - job: BuildJob
+    displayName: 'Build GADS Application'
+    steps:
+    
+    # Checkout code
+    - checkout: self
+      displayName: 'Checkout source code'
+    
+    # Configure Git with GitHub token and initialize submodules
+    - script: |
+        # Configure git to use the GitHub token for HTTPS authentication
+        git config --global url."https://$(GITHUB_TOKEN)@github.com/".insteadOf "https://github.com/"
+        
+        # Configure git to use HTTPS with token instead of SSH for GitHub
+        git config --global url."https://$(GITHUB_TOKEN)@github.com/".insteadOf "git@github.com:"
+        
+        # Initialize and update submodules with the configured authentication
+        git submodule update --init --recursive
+        
+        # Clean up the global git config for security
+        git config --global --unset url."https://$(GITHUB_TOKEN)@github.com/".insteadOf
+      env:
+        GITHUB_TOKEN: $(GITHUB_TOKEN)
+      displayName: 'Initialize and update private submodules'
+    
+    # Set build version and metadata
+    - script: |
+        # Generate build version with timestamp
+        BUILD_TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+        BUILD_VERSION="$(VERSION_PREFIX)-$(Build.BuildNumber)-${BUILD_TIMESTAMP}"
+        echo "##vso[task.setvariable variable=BUILD_VERSION]${BUILD_VERSION}"
+        echo "##vso[task.setvariable variable=BUILD_TIMESTAMP]${BUILD_TIMESTAMP}"
+        
+        # Set build tags for release pipeline identification
+        echo "##vso[build.addbuildtag]develop-build"
+        echo "##vso[build.addbuildtag]ready-for-release"
+        echo "##vso[build.addbuildtag]version-${BUILD_VERSION}"
+        
+        echo "Build Version: ${BUILD_VERSION}"
+      displayName: 'Set build version and metadata'
+    
+    # Install Go
+    - task: GoTool@0
+      inputs:
+        version: '$(GO_VERSION)'
+      displayName: 'Install Go $(GO_VERSION)'
+    
+    # Install Node.js
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '$(NODE_VERSION)'
+      displayName: 'Install Node.js $(NODE_VERSION)'
+    
+    # Build UI static files
+    - script: |
+        cd hub-ui
+        npm install
+        REACT_APP_VERSION=$(BUILD_VERSION) npm run build --verbose
+      env:
+        CI: false
+      displayName: 'Build UI static files'
+    
+    # Install JavaScript Obfuscator and obfuscate UI build
+    - script: |
+        npm install -g javascript-obfuscator
+        cd hub-ui
+        javascript-obfuscator ./build --output ./ui-dist \
+          --compact true \
+          --identifier-names-generator mangled \
+          --rename-globals false \
+          --rename-properties false \
+          --simplify true \
+          --string-array true \
+          --transform-object-keys false
+        rm -rf ./build/static/js/*
+        cp -r ./ui-dist/static/js/* ./build/static/js
+        zip -r ../ui-files-$(BUILD_VERSION).zip ./build
+      displayName: 'Obfuscate UI build output'
+    
+    # Install Swagger Generator
+    - script: |
+        go install github.com/swaggo/swag/cmd/swag@latest
+      displayName: 'Install Swagger Generator'
+    
+    # Generate Swagger Documentation
+    - script: |
+        swag init -g hub/hub.go -o docs
+      displayName: 'Generate Swagger Documentation'
+    
+    # Build binaries for multiple platforms
+    - script: |
+        go get
+        
+        echo "Preparing Windows binary"
+        GOOS=windows GOARCH=amd64 go build -tags ui -ldflags="-X 'main.AppVersion=$(BUILD_VERSION)'" -o GADS.exe .
+        zip -j gads-windows-amd64-$(BUILD_VERSION).zip GADS.exe
+        rm GADS.exe
+        
+        echo "Preparing macOS amd64 binary"
+        GOOS=darwin GOARCH=amd64 go build -tags ui -ldflags="-X 'main.AppVersion=$(BUILD_VERSION)'" -o GADS .
+        zip -j gads-darwin-amd64-$(BUILD_VERSION).zip GADS
+        rm GADS
+        
+        echo "Preparing macOS arm64 binary"
+        GOOS=darwin GOARCH=arm64 go build -tags ui -ldflags="-X 'main.AppVersion=$(BUILD_VERSION)'" -o GADS .
+        zip -j gads-darwin-arm64-$(BUILD_VERSION).zip GADS
+        rm GADS
+        
+        echo "Preparing Linux binary"
+        GOOS=linux GOARCH=amd64 go build -tags ui -ldflags="-X 'main.AppVersion=$(BUILD_VERSION)'" -o GADS .
+        zip -j gads-linux-amd64-$(BUILD_VERSION).zip GADS
+        rm GADS
+      displayName: 'Build binaries for multiple platforms'
+    
+    # Create build manifest for release pipeline
+    - script: |
+        cat > build-manifest.json << EOF
+        {
+          "buildVersion": "$(BUILD_VERSION)",
+          "buildNumber": "$(Build.BuildNumber)",
+          "buildTimestamp": "$(BUILD_TIMESTAMP)",
+          "sourceCommit": "$(Build.SourceVersion)",
+          "sourceBranch": "$(Build.SourceBranchName)",
+          "buildConfiguration": "$(BUILD_CONFIGURATION)",
+          "artifacts": [
+            "gads-windows-amd64-$(BUILD_VERSION).zip",
+            "gads-darwin-amd64-$(BUILD_VERSION).zip",
+            "gads-darwin-arm64-$(BUILD_VERSION).zip",
+            "gads-linux-amd64-$(BUILD_VERSION).zip",
+            "ui-files-$(BUILD_VERSION).zip",
+            "swagger-docs-$(BUILD_VERSION).zip"
+          ],
+          "releaseReady": true,
+          "tags": ["develop-build", "ready-for-release", "version-$(BUILD_VERSION)"]
+        }
+        EOF
+        
+        echo "Build manifest created:"
+        cat build-manifest.json
+      displayName: 'Create build manifest'
+    
+    # Copy files to staging directory for release
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)'
+        Contents: |
+          *.zip
+          build-manifest.json
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      displayName: 'Copy release files to staging'
+    
+    # Publish pipeline artifacts with release metadata
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifact: '$(ARTIFACT_NAME)-$(BUILD_VERSION)'
+        properties: |
+          {
+            "buildVersion": "$(BUILD_VERSION)",
+            "releaseReady": "true",
+            "sourceBranch": "develop",
+            "buildConfiguration": "$(BUILD_CONFIGURATION)"
+          }
+      condition: succeeded()
+      displayName: 'Publish pipeline artifacts for release' 
