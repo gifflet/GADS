@@ -58,6 +58,12 @@ type WorkspacesResponse struct {
 	Total      int64       `json:"total" example:"25"`
 }
 
+// WorkspaceDevicesResponse represents the response for workspace devices listing endpoints
+type WorkspaceDevicesResponse struct {
+	Devices []Device `json:"devices"`
+	Total   int      `json:"total" example:"1"`
+}
+
 // AuthResponse represents the response for authentication endpoints
 type AuthResponse struct {
 	AccessToken string `json:"access_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`

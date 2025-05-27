@@ -43,3 +43,9 @@ func (m *MongoStore) GetProviderDevices(providerNickname string) ([]models.Devic
 	filter := bson.M{"provider": providerNickname}
 	return GetDocuments[models.Device](m.Ctx, coll, filter)
 }
+
+func (m *MongoStore) GetDevicesByWorkspace(workspaceID string) ([]models.Device, error) {
+	coll := m.GetCollection("new_devices")
+	filter := bson.M{"workspace_id": workspaceID}
+	return GetDocuments[models.Device](m.Ctx, coll, filter)
+}
