@@ -281,3 +281,53 @@ func GetUserWorkspaces(c *gin.Context) {
 		"total":      len(workspaces),
 	})
 }
+
+// GetWorkspaceDevices godoc
+// @Summary      Get devices in a workspace
+// @Description  Retrieve list of devices associated with a specific workspace
+// @Tags         Admin - Workspaces
+// @Accept       json
+// @Produce      json
+// @Param        workspaceId  path      string  true  "Workspace ID"
+// @Success      200          {object}  models.WorkspaceDevicesResponse
+// @Failure      400          {object}  models.ErrorResponse
+// @Failure      404          {object}  models.ErrorResponse
+// @Failure      500          {object}  models.ErrorResponse
+// @Security     BearerAuth
+// @Router       /admin/workspaces/{workspaceId}/devices [get]
+func GetWorkspaceDevices(c *gin.Context) {
+	workspaceID := c.Param("workspaceId")
+
+	if workspaceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Workspace ID is required"})
+		return
+	}
+
+	// Validate that workspace exists
+	_, err := db.GlobalMongoStore.GetWorkspaceByID(workspaceID)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Workspace not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get workspace"})
+		return
+	}
+
+	// Get devices for the workspace
+	devices, err := db.GlobalMongoStore.GetDevicesByWorkspace(workspaceID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get workspace devices"})
+		return
+	}
+
+	// Initialize with empty slice if nil to ensure JSON array response
+	if devices == nil {
+		devices = []models.Device{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"devices": devices,
+		"total":   len(devices),
+	})
+}

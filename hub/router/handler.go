@@ -119,6 +119,7 @@ func HandleRequests(configData *models.HubConfig, uiFiles fs.FS) *gin.Engine {
 	authGroup.PUT("/admin/workspaces", UpdateWorkspace)
 	authGroup.DELETE("/admin/workspaces/:id", DeleteWorkspace)
 	authGroup.GET("/admin/workspaces", GetWorkspaces)
+	authGroup.GET("/admin/workspaces/:workspaceId/devices", GetWorkspaceDevices)
 	authGroup.GET("/workspaces", GetUserWorkspaces)
 	// Secret Keys endpoints
 	authGroup.GET("/admin/secret-keys", GetSecretKeys)
