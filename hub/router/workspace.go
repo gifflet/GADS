@@ -155,7 +155,7 @@ func GetWorkspaces(c *gin.Context) {
 	pageStr := c.Query("page")
 	limitStr := c.Query("limit")
 	searchStr := c.Query("search")
-	tenantStr := c.Query("tenant")
+	tenantStr := extractTenantFromRawQuery(c.Request.URL.RawQuery)
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
@@ -182,7 +182,7 @@ func GetWorkspaces(c *gin.Context) {
 
 	// Filter by tenant if specified
 	if tenantStr != "" {
-		var filteredWorkspaces []models.WorkspaceWithDeviceCount
+		var filteredWorkspaces []models.WorkspaceWithDeviceCount = []models.WorkspaceWithDeviceCount{}
 		for _, ws := range workspaces {
 			if ws.Tenant == tenantStr {
 				filteredWorkspaces = append(filteredWorkspaces, ws)

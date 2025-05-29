@@ -1059,11 +1059,14 @@ type AdminDeviceData struct {
 // @Tags         Admin - Devices
 // @Accept       json
 // @Produce      json
+// @Param        tenant  query  string  false  "Filter by tenant"
 // @Success      200  {object}  AdminDeviceData
 // @Failure      500  {object}  models.ErrorResponse
 // @Security     BearerAuth
 // @Router       /admin/devices [get]
 func GetDevices(c *gin.Context) {
+	tenantStr := extractTenantFromRawQuery(c.Request.URL.RawQuery)
+
 	dbDevices, _ := db.GlobalMongoStore.GetDevices()
 	providers, _ := db.GlobalMongoStore.GetAllProviders()
 
@@ -1074,6 +1077,29 @@ func GetDevices(c *gin.Context) {
 
 	if len(dbDevices) == 0 || len(providerNames) == 0 {
 		dbDevices = []models.Device{}
+	}
+
+	// Filter by tenant if specified
+	if tenantStr != "" {
+		// Get all workspaces to create a mapping of workspaceID -> tenant
+		workspaces, _ := db.GlobalMongoStore.GetWorkspaces()
+
+		// Create a set of workspace IDs that belong to the specified tenant
+		tenantWorkspaceIDs := make(map[string]bool)
+		for _, ws := range workspaces {
+			if ws.Tenant == tenantStr {
+				tenantWorkspaceIDs[ws.ID] = true
+			}
+		}
+
+		// Filter devices that belong to workspaces of the specified tenant
+		var filteredDevices []models.Device = []models.Device{}
+		for _, device := range dbDevices {
+			if tenantWorkspaceIDs[device.WorkspaceID] {
+				filteredDevices = append(filteredDevices, device)
+			}
+		}
+		dbDevices = filteredDevices
 	}
 
 	var adminDeviceData = AdminDeviceData{
