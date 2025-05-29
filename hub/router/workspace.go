@@ -155,7 +155,7 @@ func GetWorkspaces(c *gin.Context) {
 	pageStr := c.Query("page")
 	limitStr := c.Query("limit")
 	searchStr := c.Query("search")
-	tenantStr := extractTenantFromRawQuery(c.Request.URL.RawQuery)
+	tenantStr := c.Query("tenant")
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
