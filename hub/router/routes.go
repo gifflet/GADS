@@ -1065,7 +1065,7 @@ type AdminDeviceData struct {
 // @Security     BearerAuth
 // @Router       /admin/devices [get]
 func GetDevices(c *gin.Context) {
-	tenantStr := extractTenantFromRawQuery(c.Request.URL.RawQuery)
+	tenantStr := c.Query("tenant")
 
 	dbDevices, _ := db.GlobalMongoStore.GetDevices()
 	providers, _ := db.GlobalMongoStore.GetAllProviders()
