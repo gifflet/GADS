@@ -50,18 +50,19 @@ type User struct {
 
 type Device struct {
 	// DB DATA
-	UDID             string `json:"udid" bson:"udid" example:"HT7B1234567"`                      // device UDID
-	OS               string `json:"os" bson:"os" example:"android"`                              // device OS
-	Name             string `json:"name" bson:"name" example:"Samsung Galaxy S21"`               // name of the device
-	OSVersion        string `json:"os_version" bson:"os_version" example:"11.0"`                 // OS version of the device
-	Provider         string `json:"provider" bson:"provider" example:"provider_1"`               // nickname of the device host(provider)
-	Usage            string `json:"usage" bson:"usage" example:"enabled"`                        // what is the device used for: enabled(automation and remote control), automation(only Appium testing), remote(only remote control), disabled
-	ScreenWidth      string `json:"screen_width" bson:"screen_width" example:"1080"`             // screen width of device
-	ScreenHeight     string `json:"screen_height" bson:"screen_height" example:"1920"`           // screen height of device
-	DeviceType       string `json:"device_type" bson:"device_type" example:"real"`               // The type of device - `real` or `emulator`
-	UseWebRTCVideo   bool   `json:"use_webrtc_video" bson:"use_webrtc_video" example:"false"`    // Should the device use WebRTC video instead of MJPEG
-	WebRTCVideoCodec string `json:"webrtc_video_codec" bson:"webrtc_video_codec" example:"h264"` // Which video codec should the device use for WebRTC video stream
-	WorkspaceID      string `json:"workspace_id" bson:"workspace_id" example:"workspace_id_1"`   // ID of the associated workspace
+	UDID             string `json:"udid" bson:"udid"`                             // device UDID
+	OS               string `json:"os" bson:"os"`                                 // device OS
+	Name             string `json:"name" bson:"name"`                             // name of the device
+	OSVersion        string `json:"os_version" bson:"os_version"`                 // OS version of the device
+	IPAddress        string `json:"ip_address" bson:"ip_address"`                 // IP address of the device
+	Provider         string `json:"provider" bson:"provider"`                     // nickname of the device host(provider)
+	Usage            string `json:"usage" bson:"usage"`                           // what is the device used for: enabled(automation and remote control), automation(only Appium testing), remote(only remote control), disabled
+	ScreenWidth      string `json:"screen_width" bson:"screen_width"`             // screen width of device
+	ScreenHeight     string `json:"screen_height" bson:"screen_height"`           // screen height of device
+	DeviceType       string `json:"device_type" bson:"device_type"`               // The type of device - `real` or `emulator`
+	UseWebRTCVideo   bool   `json:"use_webrtc_video" bson:"use_webrtc_video"`     // Should the device use WebRTC video instead of MJPEG
+	WebRTCVideoCodec string `json:"webrtc_video_codec" bson:"webrtc_video_codec"` // Which video codec should the device use for WebRTC video stream
+	WorkspaceID      string `json:"workspace_id" bson:"workspace_id"`             // ID of the associated workspace
 	// NON-DB DATA
 	/// COMMON VALUES
 	Host                 string `json:"host" bson:"-"`                            // IP address of the device host(provider)
@@ -97,6 +98,7 @@ type Device struct {
 	GoIOSTunnel             tunnel.Tunnel      `json:"-" bson:"-"` // Tunnel obj for go-ios handling of iOS 17.4+
 	SemVer                  *semver.Version    `json:"-" bson:"-"` // Semantic version of device for checks around the provider
 	InitialSetupDone        bool               `json:"-" bson:"-"` // On provider startup some data is prepared for devices like logger, Mongo collection, etc. This is true if all is done
+	DeviceAddress           string             `json:"-" bson:"-"`
 }
 
 type LocalHubDevice struct {
