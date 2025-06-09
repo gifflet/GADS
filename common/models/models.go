@@ -11,7 +11,10 @@ package models
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -181,4 +184,70 @@ type ProviderLog struct {
 	Level     string `json:"level" bson:"level"`
 	Message   string `json:"message" bson:"message"`
 	Timestamp int64  `json:"timestamp" bson:"timestamp"`
+}
+
+type TizenTVInfo struct {
+	ID        string      `json:"id"`
+	Name      string      `json:"name"`
+	Version   string      `json:"version"`
+	Device    TizenDevice `json:"device"`
+	Type      string      `json:"type"`
+	URI       string      `json:"uri"`
+	Remote    string      `json:"remote"`
+	IsSupport string      `json:"isSupport"`
+}
+
+type TizenDevice struct {
+	Type              string `json:"type"`
+	DUID              string `json:"duid"`
+	Model             string `json:"model"`
+	ModelName         string `json:"modelName"`
+	Description       string `json:"description"`
+	NetworkType       string `json:"networkType"`
+	SSID              string `json:"ssid"`
+	IP                string `json:"ip"`
+	FirmwareVersion   string `json:"firmwareVersion"`
+	Name              string `json:"name"`
+	ID                string `json:"id"`
+	UDN               string `json:"udn"`
+	Resolution        string `json:"resolution"`
+	CountryCode       string `json:"countryCode"`
+	MSFVersion        string `json:"msfVersion"`
+	SmartHubAgreement string `json:"smartHubAgreement"`
+	VoiceSupport      string `json:"VoiceSupport"`
+	GamePadSupport    string `json:"GamePadSupport"`
+	WifiMac           string `json:"wifiMac"`
+	DeveloperMode     string `json:"developerMode"`
+	DeveloperIP       string `json:"developerIP"`
+	OS                string `json:"OS"`
+}
+
+// ValidateDeviceUsageForOS validates that the device usage is compatible with the device OS
+func ValidateDeviceUsageForOS(os, usage string) error {
+	// Normalize OS string to lowercase for case-insensitive comparison
+	normalizedOS := strings.ToLower(strings.TrimSpace(os))
+	normalizedUsage := strings.ToLower(strings.TrimSpace(usage))
+
+	// Validate Tizen devices can only be used for automation
+	if normalizedOS == "tizen" {
+		if normalizedUsage != "automation" {
+			return fmt.Errorf("tizen devices only support 'automation' usage. Current usage '%s' is not supported. Tizen devices can only be used for Appium testing and automation", usage)
+		}
+	}
+
+	return nil
+}
+
+// ValidateDevice performs comprehensive validation on a device struct
+func ValidateDevice(device *Device) error {
+	if device == nil {
+		return errors.New("device cannot be nil")
+	}
+
+	// Validate OS and Usage combination
+	if err := ValidateDeviceUsageForOS(device.OS, device.Usage); err != nil {
+		return err
+	}
+
+	return nil
 }
