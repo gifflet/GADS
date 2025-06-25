@@ -112,6 +112,12 @@ func StartHub(flags *pflag.FlagSet, appVersion string, uiFiles fs.FS, resourceFi
 		log.Fatalf("Failed to get/update global stream settings - %s", err)
 	}
 
+	// Initialize client credentials collection and indexes
+	err = db.GlobalMongoStore.InitClientCredentialsCollection()
+	if err != nil {
+		log.Fatalf("Failed to initialize client credentials collection - %s", err)
+	}
+
 	// Check if the default workspace exists
 	defaultWorkspace, err := db.GlobalMongoStore.GetDefaultWorkspace()
 	if err != nil {

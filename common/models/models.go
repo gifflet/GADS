@@ -242,6 +242,21 @@ type AndroidFileNodeResponse struct {
 	Result  AndroidFileNode `json:"result,omitempty"`
 }
 
+// ClientCredential represents OAuth2 client credentials for API access
+type ClientCredential struct {
+	ID           string     `json:"id" bson:"_id,omitempty"`
+	ClientID     string     `json:"client_id" bson:"client_id"`
+	ClientSecret string     `json:"-" bson:"client_secret"` // Never return in JSON
+	Name         string     `json:"name" bson:"name"`
+	Description  string     `json:"description" bson:"description"`
+	UserID       string     `json:"user_id" bson:"user_id"`
+	Tenant       string     `json:"tenant" bson:"tenant"`
+	IsActive     bool       `json:"is_active" bson:"is_active"`
+	CreatedAt    time.Time  `json:"created_at" bson:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at" bson:"updated_at"`
+	LastUsedAt   *time.Time `json:"last_used_at,omitempty" bson:"last_used_at,omitempty"`
+}
+
 // ValidateDeviceUsageForOS validates that the device usage is compatible with the device OS
 func ValidateDeviceUsageForOS(os, usage string) error {
 	// Normalize OS string to lowercase for case-insensitive comparison
