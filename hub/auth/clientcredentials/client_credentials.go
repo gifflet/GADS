@@ -2,8 +2,6 @@ package clientcredentials
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -12,7 +10,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // ClientCredentials represents OAuth2 client credentials configuration
@@ -33,6 +30,7 @@ type ClientCredentials struct {
 type ClientCredentialsService struct {
 	collection *mongo.Collection
 	jwtSecret  []byte
+	crypto     *CryptoService
 }
 
 // NewClientCredentialsService creates a new client credentials service
@@ -40,15 +38,23 @@ func NewClientCredentialsService(db *mongo.Database, jwtSecret []byte) *ClientCr
 	return &ClientCredentialsService{
 		collection: db.Collection("client_credentials"),
 		jwtSecret:  jwtSecret,
+		crypto:     NewCryptoService(),
 	}
 }
 
 // CreateClientCredentials creates new client credentials
 func (s *ClientCredentialsService) CreateClientCredentials(ctx context.Context, name, description string, scopes []string, createdBy string) (*ClientCredentials, string, error) {
-	clientID := generateClientID()
-	clientSecret := generateClientSecret()
+	clientID, err := s.crypto.GenerateClientID()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate client ID: %w", err)
+	}
 
-	hashedSecret, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
+	clientSecret, err := s.crypto.GenerateClientSecret()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate client secret: %w", err)
+	}
+
+	hashedSecret, err := s.crypto.HashSecret(clientSecret)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to hash client secret: %w", err)
 	}
@@ -56,7 +62,7 @@ func (s *ClientCredentialsService) CreateClientCredentials(ctx context.Context, 
 	credentials := &ClientCredentials{
 		ID:           primitive.NewObjectID(),
 		ClientID:     clientID,
-		ClientSecret: string(hashedSecret),
+		ClientSecret: hashedSecret,
 		Name:         name,
 		Description:  description,
 		Scopes:       scopes,
@@ -91,8 +97,7 @@ func (s *ClientCredentialsService) AuthenticateClient(ctx context.Context, clien
 		return "", fmt.Errorf("failed to find client: %w", err)
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(credentials.ClientSecret), []byte(clientSecret))
-	if err != nil {
+	if !s.crypto.ValidateSecret(clientSecret, credentials.ClientSecret) {
 		return "", fmt.Errorf("invalid client credentials")
 	}
 
@@ -188,24 +193,6 @@ func (s *ClientCredentialsService) generateAccessToken(clientID string, scopes [
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(s.jwtSecret)
-}
-
-// generateClientID generates a unique client ID
-func generateClientID() string {
-	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		panic("Failed to generate random bytes for client ID")
-	}
-	return "gads_" + base64.URLEncoding.EncodeToString(bytes)[:22]
-}
-
-// generateClientSecret generates a secure client secret
-func generateClientSecret() string {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		panic("Failed to generate random bytes for client secret")
-	}
-	return base64.URLEncoding.EncodeToString(bytes)
 }
 
 // ValidateScopes validates that requested scopes are allowed
