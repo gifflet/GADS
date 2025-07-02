@@ -214,6 +214,24 @@ type TizenTVInfo struct {
 	IsSupport string      `json:"isSupport"`
 }
 
+type WebOSTVInfo struct {
+	Device struct {
+		ModelName       string `json:"modelName"`
+		Model           string `json:"model"`
+		FirmwareVersion string `json:"firmwareVersion"`
+		Resolution      string `json:"resolution"`
+		IP              string `json:"ip"`
+		MAC             string `json:"mac"`
+	} `json:"device"`
+	Services []WebOSService `json:"services"`
+}
+
+type WebOSService struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Enabled bool   `json:"enabled"`
+}
+
 type TizenDevice struct {
 	Type              string `json:"type"`
 	DUID              string `json:"duid"`
@@ -269,6 +287,13 @@ func ValidateDeviceUsageForOS(os, usage string) error {
 	if normalizedOS == "tizen" {
 		if normalizedUsage != "automation" {
 			return fmt.Errorf("tizen devices only support 'automation' usage. Current usage '%s' is not supported. Tizen devices can only be used for Appium testing and automation", usage)
+		}
+	}
+
+	// Validate WebOS devices can only be used for automation
+	if normalizedOS == "webos" {
+		if normalizedUsage != "automation" {
+			return fmt.Errorf("webos devices only support 'automation' usage. Current usage '%s' is not supported. WebOS devices can only be used for Appium testing and automation", usage)
 		}
 	}
 
