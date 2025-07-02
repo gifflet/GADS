@@ -218,6 +218,15 @@ func updateDevices() {
 		defer tizenTicker.Stop()
 	}
 
+	var webosTicker *time.Ticker
+	var webosChan <-chan time.Time
+
+	if config.ProviderConfig.ProvideWebOS {
+		webosTicker = time.NewTicker(30 * time.Second)
+		webosChan = webosTicker.C
+		defer webosTicker.Stop()
+	}
+
 	for {
 		select {
 		case <-ticker.C:
@@ -248,6 +257,8 @@ func updateDevices() {
 							go setupAndroidDevice(dbDevice)
 						case "tizen":
 							go setupTizenDevice(dbDevice)
+						case "webos":
+							go setupWebOSDevice(dbDevice)
 						}
 					}
 				} else {
@@ -259,6 +270,10 @@ func updateDevices() {
 		case <-tizenChan:
 			if tizenChan != nil {
 				handleTizenAutoConnection(GetConnectedDevicesCommon())
+			}
+		case <-webosChan:
+			if webosChan != nil {
+				handleWebOSAutoConnection(GetConnectedDevicesCommon())
 			}
 		}
 	}
@@ -802,6 +817,7 @@ func GetConnectedDevicesCommon() []string {
 	var androidDevices []string
 	var iosDevices []string
 	var tizenDevices []string
+	var webosDevices []string
 
 	if config.ProviderConfig.ProvideAndroid {
 		androidDevices = getConnectedDevicesAndroid()
@@ -815,9 +831,14 @@ func GetConnectedDevicesCommon() []string {
 		tizenDevices = getConnectedDevicesTizen()
 	}
 
+	if config.ProviderConfig.ProvideWebOS {
+		webosDevices = getConnectedDevicesWebOS()
+	}
+
 	connectedDevices = append(connectedDevices, iosDevices...)
 	connectedDevices = append(connectedDevices, androidDevices...)
 	connectedDevices = append(connectedDevices, tizenDevices...)
+	connectedDevices = append(connectedDevices, webosDevices...)
 
 	return connectedDevices
 }
@@ -941,6 +962,21 @@ func startAppium(device *models.Device, deviceSetupWg *sync.WaitGroup) {
 		capabilities = models.AppiumServerCapabilities{
 			AutomationName:         "TizenTV",
 			PlatformName:           "TizenTV",
+			UDID:                   device.UDID,
+			DeviceAddress:          device.DeviceAddress,
+			DeviceName:             device.Name,
+			ChromeDriverExecutable: absolutePath,
+		}
+	} else if device.OS == "webos" {
+		chromeDriverPath := filepath.Join(config.ProviderConfig.ProviderFolder, "drivers/chromedriver")
+		absolutePath, err := filepath.Abs(chromeDriverPath)
+		if err != nil {
+			logger.ProviderLogger.LogError("device_setup", fmt.Sprintf("Failed to get absolute path for ChromeDriver - %s", err))
+			return
+		}
+		capabilities = models.AppiumServerCapabilities{
+			AutomationName:         "webos",
+			PlatformName:           "lgtv",
 			UDID:                   device.UDID,
 			DeviceAddress:          device.DeviceAddress,
 			DeviceName:             device.Name,
