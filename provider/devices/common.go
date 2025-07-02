@@ -85,9 +85,12 @@ func updateProviderHub() {
 		var properJson models.ProviderData
 		for _, dbDevice := range DBDeviceMap {
 
-			// Update the WorkspaceID in dbDevice from the updatedDevices map
+			// Update the WorkspaceID and streaming settings in dbDevice from the updatedDevices map
 			if updatedDevice, ok := updatedDevices[dbDevice.UDID]; ok {
 				dbDevice.WorkspaceID = updatedDevice.WorkspaceID
+				// Update streaming configuration from database
+				dbDevice.UseWebRTCVideo = updatedDevice.UseWebRTCVideo
+				dbDevice.WebRTCVideoCodec = updatedDevice.WebRTCVideoCodec
 				// If the provider does not set up Appium servers
 				// Always return device usage as `control`
 				if !config.ProviderConfig.SetupAppiumServers {
