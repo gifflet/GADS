@@ -155,14 +155,9 @@ func LoginHandler(c *gin.Context) {
 		scopes = append(scopes, "admin")
 	}
 
-	// Get the user's tenant/workspace
-	tenant := ""
-	if len(user.WorkspaceIDs) > 0 {
-		tenant = user.WorkspaceIDs[0]
-	}
+	// Generate JWT token with 1 hour validity
+	token, err := GenerateJWT(user.Username, user.Role, "gads", scopes, time.Hour, origin)
 
-	// Generate JWT token with 1 hour validity using effective role
-	token, err := GenerateJWT(user.Username, userRole, tenant, scopes, time.Hour, origin)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return

@@ -162,6 +162,22 @@ type StreamSettings struct {
 	ScalingFactoriOS     int `json:"scaling_factor_ios,omitempty" bson:"scaling_factor_ios"`
 }
 
+// ClientCredentials represents OAuth2 client credentials for API access
+type ClientCredentials struct {
+	ID           string     `json:"id" bson:"_id,omitempty"`
+	ClientID     string     `json:"client_id" bson:"client_id"`
+	ClientSecret string     `json:"-" bson:"client_secret"` // Never return in JSON (bcrypt hash)
+	SecretLookup string     `json:"-" bson:"secret_lookup"` // SHA256 hash for efficient secret lookup
+	Name         string     `json:"name" bson:"name"`
+	Description  string     `json:"description" bson:"description"`
+	UserID       string     `json:"user_id" bson:"user_id"`
+	Tenant       string     `json:"tenant" bson:"tenant"`
+	IsActive     bool       `json:"is_active" bson:"is_active"`
+	CreatedAt    time.Time  `json:"created_at" bson:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at" bson:"updated_at"`
+	LastUsedAt   *time.Time `json:"last_used_at,omitempty" bson:"last_used_at,omitempty"`
+}
+
 type Workspace struct {
 	ID          string `json:"id" bson:"_id,omitempty" example:"workspace_123"`
 	Name        string `json:"name" bson:"name" example:"Development Team"`
@@ -220,6 +236,26 @@ type TizenDevice struct {
 	DeveloperMode     string `json:"developerMode"`
 	DeveloperIP       string `json:"developerIP"`
 	OS                string `json:"OS"`
+}
+
+type AndroidFileNode struct {
+	Name     string                      `json:"name"`
+	Children map[string]*AndroidFileNode `json:"children,omitempty"`
+	IsFile   bool                        `json:"isFile"`
+	FullPath string                      `json:"fullPath"`
+	FileDate int64                       `json:"fileDate"`
+}
+
+// API Responses
+
+type APIResponse struct {
+	Message string      `json:"message,omitempty"`
+	Result  interface{} `json:"result,omitempty"`
+}
+
+type AndroidFileNodeResponse struct {
+	Message string          `json:"message,omitempty"`
+	Result  AndroidFileNode `json:"result,omitempty"`
 }
 
 // ValidateDeviceUsageForOS validates that the device usage is compatible with the device OS
