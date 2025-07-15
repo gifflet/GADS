@@ -20,6 +20,19 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// ensureWorkspaceTenant ensures the workspace has a tenant, using default if empty
+func ensureWorkspaceTenant(workspace *models.Workspace, c *gin.Context) error {
+	if workspace.Tenant == "" {
+		defaultTenant, err := db.GlobalMongoStore.GetOrCreateDefaultTenant()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get default tenant"})
+			return err
+		}
+		workspace.Tenant = defaultTenant
+	}
+	return nil
+}
+
 // CreateWorkspace godoc
 // @Summary      Create a new workspace
 // @Description  Create a new workspace in the system
@@ -40,6 +53,10 @@ func CreateWorkspace(c *gin.Context) {
 	}
 
 	workspace.IsDefault = false
+
+	if err := ensureWorkspaceTenant(&workspace, c); err != nil {
+		return
+	}
 
 	// Validate unique name
 	existingWorkspaces, _ := db.GlobalMongoStore.GetWorkspaces()
@@ -76,6 +93,10 @@ func UpdateWorkspace(c *gin.Context) {
 	var workspace models.Workspace
 	if err := c.ShouldBindJSON(&workspace); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	if err := ensureWorkspaceTenant(&workspace, c); err != nil {
 		return
 	}
 
@@ -182,7 +203,7 @@ func GetWorkspaces(c *gin.Context) {
 
 	// Filter by tenant if specified
 	if tenantStr != "" {
-		var filteredWorkspaces []models.WorkspaceWithDeviceCount = []models.WorkspaceWithDeviceCount{}
+		var filteredWorkspaces []models.WorkspaceWithDeviceCount = make([]models.WorkspaceWithDeviceCount, 0)
 		for _, ws := range workspaces {
 			if ws.Tenant == tenantStr {
 				filteredWorkspaces = append(filteredWorkspaces, ws)
@@ -255,7 +276,7 @@ func GetUserWorkspaces(c *gin.Context) {
 		limit = 10 // Default limit
 	}
 
-	var workspaces []models.Workspace
+	var workspaces []models.Workspace = make([]models.Workspace, 0)
 
 	// If user is admin, return all workspaces
 	if role == "admin" {
@@ -265,6 +286,9 @@ func GetUserWorkspaces(c *gin.Context) {
 		if issuer == "gads" {
 			// For internal tokens, use the standard method based on user association
 			workspaces = db.GlobalMongoStore.GetUserWorkspaces(username)
+			if workspaces == nil {
+				workspaces = make([]models.Workspace, 0)
+			}
 		} else {
 			// For external tokens, get all workspaces and filter by tenant
 			allWorkspaces, _ := db.GlobalMongoStore.GetWorkspaces()
