@@ -125,14 +125,28 @@ func AppiumGridMiddleware(config *models.HubConfig) gin.HandlerFunc {
 
 			if credential.Tenant != "" {
 				defaultTenant, _ := db.GlobalMongoStore.GetOrCreateDefaultTenant()
-				if credential.Tenant == defaultTenant {
-					if credential.UserID != "" {
+				useAllTenantWorkspaces := true
+
+				// Check if we need to filter by user workspaces
+				if credential.Tenant == defaultTenant && credential.UserID != "" {
+					user, err := db.GlobalMongoStore.GetUser(credential.UserID)
+					if err != nil {
+						c.JSON(http.StatusUnauthorized, createErrorResponse("User not found", "session not created", ""))
+						return
+					}
+
+					if user.Role != "admin" {
+						// Regular user: only assigned workspaces
+						useAllTenantWorkspaces = false
 						userWorkspaces := db.GlobalMongoStore.GetUserWorkspaces(credential.UserID)
 						for _, ws := range userWorkspaces {
 							allowedWorkspaceIDs = append(allowedWorkspaceIDs, ws.ID)
 						}
 					}
-				} else {
+				}
+
+				// Admin users or non-default tenant: all workspaces of the tenant
+				if useAllTenantWorkspaces {
 					allWorkspaces, _ := db.GlobalMongoStore.GetWorkspaces()
 					for _, ws := range allWorkspaces {
 						if ws.Tenant == credential.Tenant {
@@ -501,6 +515,25 @@ func getDeviceByUDID(udid string) (*models.LocalHubDevice, error) {
 	return nil, fmt.Errorf("No device with udid `%s` was found", udid)
 }
 
+func getTargetOSFromCaps(caps models.CommonCapabilities) string {
+	if strings.EqualFold(caps.PlatformName, "iOS") ||
+		strings.EqualFold(caps.AutomationName, "XCUITest") {
+		return "ios"
+	}
+
+	if strings.EqualFold(caps.PlatformName, "Android") ||
+		strings.EqualFold(caps.AutomationName, "UiAutomator2") {
+		return "android"
+	}
+
+	if strings.EqualFold(caps.PlatformName, "TizenTV") ||
+		strings.EqualFold(caps.AutomationName, "TizenTV") {
+		return "tizen"
+	}
+
+	return ""
+}
+
 func findAvailableDevice(caps models.CommonCapabilities, allowedWorkspaceIDs []string, userID string, userTenant string) (*models.LocalHubDevice, error) {
 	devices.HubDevicesData.Mu.Lock()
 	defer devices.HubDevicesData.Mu.Unlock()
@@ -512,6 +545,10 @@ func findAvailableDevice(caps models.CommonCapabilities, allowedWorkspaceIDs []s
 		deviceUDID = caps.DeviceUDID
 	}
 
+	if len(allowedWorkspaceIDs) == 0 {
+		return nil, fmt.Errorf("No device with udid `%s` was found in allowed workspaces", deviceUDID)
+	}
+
 	if deviceUDID != "" {
 		foundDevice, err := getDeviceByUDID(deviceUDID)
 		if err != nil {
@@ -519,17 +556,15 @@ func findAvailableDevice(caps models.CommonCapabilities, allowedWorkspaceIDs []s
 		}
 
 		// Check if device is in allowed workspaces
-		if len(allowedWorkspaceIDs) > 0 {
-			deviceAllowed := false
-			for _, wsID := range allowedWorkspaceIDs {
-				if foundDevice.Device.WorkspaceID == wsID {
-					deviceAllowed = true
-					break
-				}
+		deviceAllowed := false
+		for _, wsID := range allowedWorkspaceIDs {
+			if foundDevice.Device.WorkspaceID == wsID {
+				deviceAllowed = true
+				break
 			}
-			if !deviceAllowed {
-				return nil, fmt.Errorf("No device with udid `%s` was found", deviceUDID)
-			}
+		}
+		if !deviceAllowed {
+			return nil, fmt.Errorf("No device with udid `%s` was found", deviceUDID)
 		}
 
 		if foundDevice.IsAvailableForAutomation {
@@ -542,13 +577,12 @@ func findAvailableDevice(caps models.CommonCapabilities, allowedWorkspaceIDs []s
 	} else {
 		var availableDevices []*models.LocalHubDevice
 
-		if strings.EqualFold(caps.PlatformName, "iOS") ||
-			strings.EqualFold(caps.AutomationName, "XCUITest") {
-
-			// Loop through all latest devices looking for an iOS device that is not currently `being prepared` for automation and the last time it was updated from provider was less than 3 seconds ago
+		targetOS := getTargetOSFromCaps(caps)
+		if targetOS != "" {
+			// Loop through all latest devices looking for a device that is not currently `being prepared` for automation and the last time it was updated from provider was less than 3 seconds ago
 			// Also device should not be disabled or for remote control only
 			for _, localDevice := range devices.HubDevicesData.Devices {
-				if strings.EqualFold(localDevice.Device.OS, "ios") &&
+				if strings.EqualFold(localDevice.Device.OS, targetOS) &&
 					localDevice.Device.Connected &&
 					localDevice.Device.ProviderState == "live" &&
 					localDevice.Device.LastUpdatedTimestamp >= (time.Now().UnixMilli()-3000) &&
@@ -557,59 +591,15 @@ func findAvailableDevice(caps models.CommonCapabilities, allowedWorkspaceIDs []s
 					localDevice.Device.Usage != "disabled" {
 
 					// Check if device is in allowed workspaces
-					if len(allowedWorkspaceIDs) > 0 {
-						deviceAllowed := false
-						for _, wsID := range allowedWorkspaceIDs {
-							if localDevice.Device.WorkspaceID == wsID {
-								deviceAllowed = true
-								break
-							}
-						}
-						if !deviceAllowed {
-							continue
+					deviceAllowed := false
+					for _, wsID := range allowedWorkspaceIDs {
+						if localDevice.Device.WorkspaceID == wsID {
+							deviceAllowed = true
+							break
 						}
 					}
-
-					// Check if device is in use by another user
-					if localDevice.InUseBy != "" && localDevice.InUseByTenant != "" {
-						currentUser := userID
-						if currentUser == "" {
-							currentUser = "unknown"
-						}
-						if localDevice.InUseBy != currentUser || localDevice.InUseByTenant != userTenant {
-							continue
-						}
-					}
-
-					availableDevices = append(availableDevices, localDevice)
-				}
-			}
-		} else if strings.EqualFold(caps.PlatformName, "Android") ||
-			strings.EqualFold(caps.AutomationName, "UiAutomator2") {
-
-			// Loop through all latest devices looking for an Android device that is not currently `being prepared` for automation and the last time it was updated from provider was less than 3 seconds ago
-			// Also device should not be disabled or for remote control only
-			for _, localDevice := range devices.HubDevicesData.Devices {
-				if strings.EqualFold(localDevice.Device.OS, "android") &&
-					localDevice.Device.Connected &&
-					localDevice.Device.ProviderState == "live" &&
-					localDevice.Device.LastUpdatedTimestamp >= (time.Now().UnixMilli()-3000) &&
-					localDevice.IsAvailableForAutomation &&
-					localDevice.Device.Usage != "control" &&
-					localDevice.Device.Usage != "disabled" {
-
-					// Check if device is in allowed workspaces
-					if len(allowedWorkspaceIDs) > 0 {
-						deviceAllowed := false
-						for _, wsID := range allowedWorkspaceIDs {
-							if localDevice.Device.WorkspaceID == wsID {
-								deviceAllowed = true
-								break
-							}
-						}
-						if !deviceAllowed {
-							continue
-						}
+					if !deviceAllowed {
+						continue
 					}
 
 					// Check if device is in use by another user
