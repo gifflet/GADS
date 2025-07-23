@@ -105,7 +105,7 @@ stages:
     
     # Install Swagger Generator
     - script: |
-        go install github.com/swaggo/swag/cmd/swag@latest
+        go install github.com/swaggo/swag/cmd/swag@v1.16.4
         # Add Go bin directory to PATH
         echo "##vso[task.setvariable variable=PATH]$(go env GOPATH)/bin:$PATH"
       displayName: 'Install Swagger Generator'
