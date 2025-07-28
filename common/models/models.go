@@ -77,11 +77,15 @@ type Device struct {
 	StreamTargetFPS      int    `json:"stream_target_fps,omitempty" bson:"-"`     // The target FPS for the MJPEG video streams
 	StreamJpegQuality    int    `json:"stream_jpeg_quality,omitempty" bson:"-"`   // The target JPEG quality for the MJPEG video streams
 	StreamScalingFactor  int    `json:"stream_scaling_factor,omitempty" bson:"-"` // The target scaling factor for the MJPEG video streams
+	AppiumLastPingTS     int64  `json:"appium_last_ts" bson:"-"`                  // The last time the Appium server pinged the provider - the plugin sends regular pings while up
+	AppiumSessionID      string `json:"appium_session_id" bson:"-"`               // Current Appium session ID - the plugin sends a request for this when a session is created, also the session ID is available for all logs
+	IsAppiumUp           bool   `json:"is_appium_up" bson:"-"`                    // Reflects if Appium server is up or not - the plugin sends a request for this
+	HasAppiumSession     bool   `json:"has_appium_session" bson:"-"`              // This is a "just in case" property - it will be set to `true` when the plugin sends a new session registration request and to `false` when the plugin sends a remove session request
 	/// PROVIDER ONLY VALUES
 	//// RETURNABLE VALUES
 	InstalledApps []string `json:"installed_apps" bson:"-"` // list of installed apps on device
 	///// NON-RETURNABLE VALUES
-	AppiumSessionID         string             `json:"-" bson:"-"` // current Appium session ID
+
 	WDASessionID            string             `json:"-" bson:"-"` // current WebDriverAgent session ID
 	AppiumPort              string             `json:"-" bson:"-"` // port assigned to the device for the Appium server
 	StreamPort              string             `json:"-" bson:"-"` // port assigned to the device for the video stream
@@ -95,7 +99,6 @@ type Device struct {
 	CtxCancel               context.CancelFunc `json:"-" bson:"-"` // cancel func for the context above, can be used to stop all running device goroutines
 	GoIOSDeviceEntry        ios.DeviceEntry    `json:"-" bson:"-"` // `go-ios` device entry object used for `go-ios` library interactions
 	Logger                  CustomLogger       `json:"-" bson:"-"` // CustomLogger object for the device
-	AppiumLogger            AppiumLogger       `json:"-" bson:"-"` // AppiumLogger object for logging appium actions
 	Mutex                   sync.Mutex         `json:"-" bson:"-"` // Mutex to lock resources - especially on device reset
 	SetupMutex              sync.Mutex         `json:"-" bson:"-"` // Mutex for synchronizing device setup operations
 	GoIOSTunnel             tunnel.Tunnel      `json:"-" bson:"-"` // Tunnel obj for go-ios handling of iOS 17.4+
@@ -247,6 +250,12 @@ type AndroidFileNode struct {
 	FileDate int64                       `json:"fileDate"`
 }
 
+type AppiumPluginConfiguration struct {
+	ProviderUrl       string `json:"providerUrl"`
+	UDID              string `json:"udid"`
+	HeartBeatInterval string `json:"heartbeatIntervalMs"`
+}
+
 // API Responses
 
 type APIResponse struct {
@@ -269,6 +278,13 @@ func ValidateDeviceUsageForOS(os, usage string) error {
 	if normalizedOS == "tizen" {
 		if normalizedUsage != "automation" {
 			return fmt.Errorf("tizen devices only support 'automation' usage. Current usage '%s' is not supported. Tizen devices can only be used for Appium testing and automation", usage)
+		}
+	}
+
+	// Validate WebOS devices can only be used for automation
+	if normalizedOS == "webos" {
+		if normalizedUsage != "automation" {
+			return fmt.Errorf("webos devices only support 'automation' usage. Current usage '%s' is not supported. WebOS devices can only be used for Appium testing and automation", usage)
 		}
 	}
 

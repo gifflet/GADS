@@ -56,14 +56,6 @@ type AndroidKeycodePayload struct {
 	Keycode int `json:"keycode"`
 }
 
-type AppiumLog struct {
-	SystemTS  int64  `json:"ts" bson:"ts"`
-	Message   string `json:"msg" bson:"msg"`
-	AppiumTS  string `json:"appium_ts" bson:"appium_ts"`
-	Type      string `json:"log_type" bson:"log_type"`
-	SessionID string `json:"session_id" bson:"session_id"`
-}
-
 type AppiumServerCapabilities struct {
 	UDID                   string `json:"appium:udid"`
 	WdaMjpegPort           string `json:"appium:mjpegServerPort,omitempty"`
@@ -79,6 +71,7 @@ type AppiumServerCapabilities struct {
 	WdaLaunchTimeout       string `json:"appium:wdaLaunchTimeout,omitempty"`
 	WdaConnectionTimeout   string `json:"appium:wdaConnectionTimeout,omitempty"`
 	DeviceAddress          string `json:"appium:deviceAddress,omitempty"`
+	DeviceHost             string `json:"appium:deviceHost,omitempty"`
 	ChromeDriverExecutable string `json:"appium:chromedriverExecutable,omitempty"`
 }
 
@@ -151,4 +144,14 @@ func ExtractClientSecretFromSession(sessionReq map[string]interface{}, prefix st
 	}
 
 	return ""
+}
+
+// ----- APPIUM PLUGIN------//
+type AppiumPluginLog struct {
+	Level          string `json:"level,omitempty" bson:"level"`           // The Appium log level - debug, info, etc
+	Message        string `json:"message,omitempty" bson:"message"`       //  The actual Appium log message
+	SessionID      string `json:"session_id,omitempty" bson:"session_id"` // The ID of the current active session (if any)
+	Prefix         string `json:"prefix,omitempty" bson:"prefix"`         // The Appium log prefix - `AndroidUiautomator2Driver@60a2` or `Logcat` etc
+	Timestamp      int64  `json:"timestamp" bson:"timestamp"`             // The timestamp in milliseconds when the log was sent via the plugin
+	SequenceNumber int64  `json:"sequenceNumber" bson:"sequenceNumber"`   // Sequence number of the log - because plugin might send multiple logs at the same millisecond we can use this to sort logs in their actual order
 }
