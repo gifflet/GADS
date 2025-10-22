@@ -428,6 +428,22 @@ func PullAndroidSharedStorageFile(device *models.Device, filePath string, fileNa
 	return tempFilePath, nil
 }
 
+// AdjustAndroidVolume adjusts device volume up or down
+func AdjustAndroidVolume(device *models.Device, direction string) error {
+	var keyEvent string
+	switch direction {
+	case "up":
+		keyEvent = "KEYCODE_VOLUME_UP"
+	case "down":
+		keyEvent = "KEYCODE_VOLUME_DOWN"
+	default:
+		return fmt.Errorf("invalid direction: %s (use 'up' or 'down')", direction)
+	}
+
+	cmd := exec.CommandContext(device.Context, "adb", "-s", device.UDID, "shell", "input", "keyevent", keyEvent)
+	return cmd.Run()
+}
+
 func GetAndroidSharedStorageFileTree(device *models.Device) (*models.AndroidFileNode, error) {
 	// Collect file paths
 	fileCmd := exec.Command("adb", "-s", device.UDID, "shell", "find", constants.AndroidSharedStorageRoot, "-type", "f")

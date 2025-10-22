@@ -3,6 +3,7 @@ package router
 import (
 	"GADS/common/models"
 	"GADS/provider/config"
+	"GADS/provider/devices"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -255,4 +256,11 @@ func deviceGetClipboard(device *models.Device) (*http.Response, error) {
 	} else {
 		return androidRemoteServerRequest(device, http.MethodPost, "clipboard", nil)
 	}
+}
+
+func deviceVolume(device *models.Device, direction string) error {
+	if device.OS != "android" {
+		return fmt.Errorf("volume control only available for Android devices")
+	}
+	return devices.AdjustAndroidVolume(device, direction)
 }

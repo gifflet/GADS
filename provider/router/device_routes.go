@@ -359,3 +359,33 @@ func DeviceSwipe(c *gin.Context) {
 
 	api.GenericResponse(c, swipeResp.StatusCode, string(body), nil)
 }
+
+func DeviceVolume(c *gin.Context) {
+	udid := c.Param("udid")
+	device := devices.DBDeviceMap[udid]
+
+	var requestBody struct {
+		Direction string `json:"direction"` // Expected: "up" or "down"
+	}
+
+	if err := json.NewDecoder(c.Request.Body).Decode(&requestBody); err != nil {
+		api.GenericResponse(c, http.StatusBadRequest, "Invalid request body", nil)
+		return
+	}
+
+	// Validate direction
+	if requestBody.Direction != "up" && requestBody.Direction != "down" {
+		api.GenericResponse(c, http.StatusBadRequest, "Direction must be 'up' or 'down'", nil)
+		return
+	}
+
+	device.Logger.LogInfo("device_control", fmt.Sprintf("Adjusting volume %s", requestBody.Direction))
+
+	if err := deviceVolume(device, requestBody.Direction); err != nil {
+		device.Logger.LogError("device_control", fmt.Sprintf("Failed to adjust volume: %s", err))
+		api.GenericResponse(c, http.StatusInternalServerError, err.Error(), nil)
+		return
+	}
+
+	api.GenericResponse(c, http.StatusOK, fmt.Sprintf("Volume adjusted %s", requestBody.Direction), nil)
+}
