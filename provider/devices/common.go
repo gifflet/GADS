@@ -51,7 +51,11 @@ import (
 var netClient = &http.Client{
 	Timeout: time.Second * 120,
 }
-var DBDeviceMap = make(map[string]*models.Device)
+
+var (
+	DBDeviceMap      = make(map[string]*models.Device)
+	DbDeviceMapMutex sync.RWMutex
+)
 
 func Listener() {
 	DBDeviceMap = getDBProviderDevices()
@@ -70,7 +74,6 @@ func updateProviderHub() {
 		Timeout: 5 * time.Second,
 	}
 	var updateFailureCounter = 1
-	var mu sync.Mutex
 
 	for {
 		if updateFailureCounter >= 30 {
@@ -78,19 +81,51 @@ func updateProviderHub() {
 		}
 		time.Sleep(1 * time.Second)
 
-		mu.Lock()
-
 		updatedDevices := getDBProviderDevices()
 
-		var properJson models.ProviderData
-		for _, dbDevice := range DBDeviceMap {
+		DbDeviceMapMutex.Lock()
 
-			// Update the WorkspaceID and streaming settings in dbDevice from the updatedDevices map
-			if updatedDevice, ok := updatedDevices[dbDevice.UDID]; ok {
-				dbDevice.WorkspaceID = updatedDevice.WorkspaceID
-				// Update streaming configuration from database
-				dbDevice.UseWebRTCVideo = updatedDevice.UseWebRTCVideo
-				dbDevice.WebRTCVideoCodec = updatedDevice.WebRTCVideoCodec
+		// Track devices to remove (deleted from DB)
+		var devicesToRemove []string
+
+		var properJson models.ProviderData
+		properJson.ProviderData = *config.ProviderConfig
+
+		for udid, dbDevice := range DBDeviceMap {
+			// Check if device still exists in DB
+			if updatedDevice, ok := updatedDevices[udid]; ok {
+				// Update configuration fields from DB
+				if dbDevice.ScreenWidth != updatedDevice.ScreenWidth {
+					dbDevice.ScreenWidth = updatedDevice.ScreenWidth
+				}
+				if dbDevice.ScreenHeight != updatedDevice.ScreenHeight {
+					dbDevice.ScreenHeight = updatedDevice.ScreenHeight
+				}
+				if dbDevice.Name != updatedDevice.Name {
+					dbDevice.Name = updatedDevice.Name
+				}
+				if dbDevice.OSVersion != updatedDevice.OSVersion {
+					dbDevice.OSVersion = updatedDevice.OSVersion
+				}
+				if dbDevice.Usage != updatedDevice.Usage {
+					dbDevice.Usage = updatedDevice.Usage
+				}
+				if dbDevice.WorkspaceID != updatedDevice.WorkspaceID {
+					dbDevice.WorkspaceID = updatedDevice.WorkspaceID
+				}
+				webrtcChanged := false
+				if dbDevice.UseWebRTCVideo != updatedDevice.UseWebRTCVideo {
+					dbDevice.UseWebRTCVideo = updatedDevice.UseWebRTCVideo
+					webrtcChanged = true
+				}
+				if dbDevice.WebRTCVideoCodec != updatedDevice.WebRTCVideoCodec {
+					dbDevice.WebRTCVideoCodec = updatedDevice.WebRTCVideoCodec
+					webrtcChanged = true
+				}
+				if webrtcChanged {
+					ResetLocalDevice(dbDevice, "WebRTC configuration changed, reprovisioning device")
+				}
+
 				// If the provider does not set up Appium servers
 				// Always return device usage as `control`
 				if !config.ProviderConfig.SetupAppiumServers {
@@ -98,12 +133,36 @@ func updateProviderHub() {
 						dbDevice.Usage = "control"
 					}
 				}
-			}
 
-			properJson.DeviceData = append(properJson.DeviceData, *dbDevice)
-			properJson.ProviderData = *config.ProviderConfig
+				properJson.DeviceData = append(properJson.DeviceData, *dbDevice)
+			} else {
+				// Device no longer exists in DB, mark for removal
+				devicesToRemove = append(devicesToRemove, udid)
+			}
 		}
-		mu.Unlock()
+
+		// Remove devices that no longer exist in DB
+		for _, udid := range devicesToRemove {
+			if device, ok := DBDeviceMap[udid]; ok {
+				ResetLocalDevice(device, "Device removed from DB")
+				delete(DBDeviceMap, udid)
+			}
+		}
+
+		// Add new devices from DB
+		for udid, updatedDevice := range updatedDevices {
+			if _, exists := DBDeviceMap[udid]; !exists {
+				logger.ProviderLogger.LogInfo("update_provider_hub", fmt.Sprintf("New device `%s` detected in DB, adding to provider", udid))
+				DBDeviceMap[udid] = updatedDevice
+				if err := initializeDevice(updatedDevice); err != nil {
+					logger.ProviderLogger.LogError("update_provider_hub", fmt.Sprintf("Failed to initialize new device `%s` - %s", udid, err))
+					continue
+				}
+				properJson.DeviceData = append(properJson.DeviceData, *updatedDevice)
+			}
+		}
+
+		DbDeviceMapMutex.Unlock()
 		jsonData, err := json.Marshal(properJson)
 		if err != nil {
 			updateFailureCounter++
@@ -134,74 +193,79 @@ func updateProviderHub() {
 	}
 }
 
+// initializeDevice initializes a single device with necessary setup
+func initializeDevice(dbDevice *models.Device) error {
+	dbDevice.ProviderState = "init"
+	dbDevice.Connected = false
+	dbDevice.LastUpdatedTimestamp = 0
+	dbDevice.IsResetting = false
+	dbDevice.InitialSetupDone = false
+
+	dbDevice.Host = fmt.Sprintf("%s:%v", config.ProviderConfig.HostAddress, config.ProviderConfig.Port)
+
+	semver, err := semver.NewVersion(dbDevice.OSVersion)
+	if err != nil {
+		return fmt.Errorf("failed to get semver for device `%s` - %s", dbDevice.UDID, err)
+	}
+	dbDevice.SemVer = semver
+
+	if config.ProviderConfig.SetupAppiumServers {
+		// Check if a capped Appium logs collection already exists for the current device
+		exists, err := db.GlobalMongoStore.CheckCollectionExistsWithDB("appium_logs_new", dbDevice.UDID)
+		if err != nil {
+			logger.ProviderLogger.Warnf("Could not check if device collection exists in `appium_logs_new` db, will attempt to create it either way - %s", err)
+		}
+
+		// If it doesn't exist - attempt to create it
+		if !exists {
+			err = db.GlobalMongoStore.CreateCappedCollectionWithDB("appium_logs_new", dbDevice.UDID, 30000, 30)
+			if err != nil {
+				return fmt.Errorf("failed to create capped collection for device `%s` - %s", dbDevice.UDID, err)
+			}
+		}
+
+		// Create an index model and add it to the respective device Appium log collection
+		appiumCollectionIndexModel := mongo.IndexModel{
+			Keys: bson.D{
+				{
+					Key: "timestamp", Value: constants.SortAscending,
+				},
+				{
+					Key: "session_id", Value: constants.SortAscending,
+				},
+				{
+					Key: "sequenceNumber", Value: constants.SortAscending,
+				},
+			},
+		}
+		db.GlobalMongoStore.AddCollectionIndexWithDB("appium_logs_new", dbDevice.UDID, appiumCollectionIndexModel)
+	}
+
+	// Create logs directory for the device if it doesn't already exist
+	if _, err := os.Stat(fmt.Sprintf("%s/device_%s", config.ProviderConfig.ProviderFolder, dbDevice.UDID)); os.IsNotExist(err) {
+		err = os.Mkdir(fmt.Sprintf("%s/device_%s", config.ProviderConfig.ProviderFolder, dbDevice.UDID), os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("could not create logs folder for device `%s` - %s", dbDevice.UDID, err)
+		}
+	}
+
+	// Create a custom logger and attach it to the local device
+	deviceLogger, err := logger.CreateCustomLogger(fmt.Sprintf("%s/device_%s/device.log", config.ProviderConfig.ProviderFolder, dbDevice.UDID), dbDevice.UDID)
+	if err != nil {
+		return fmt.Errorf("could not create custom logger for device `%s` - %s", dbDevice.UDID, err)
+	}
+	dbDevice.Logger = *deviceLogger
+	dbDevice.InitialSetupDone = true
+
+	return nil
+}
+
 // When provider is started and respective devices are taken from the DB, we do the initial device data setup here
 func setupDevices() {
 	for _, dbDevice := range DBDeviceMap {
-		dbDevice.ProviderState = "init"
-		dbDevice.Connected = false
-		dbDevice.LastUpdatedTimestamp = 0
-		dbDevice.IsResetting = false
-		dbDevice.InitialSetupDone = false
-
-		dbDevice.Host = fmt.Sprintf("%s:%v", config.ProviderConfig.HostAddress, config.ProviderConfig.Port)
-
-		semver, err := semver.NewVersion(dbDevice.OSVersion)
-		if err != nil {
-			logger.ProviderLogger.Errorf("updateDevices: Failed to get semver for device `%s` - %s", dbDevice, err)
-			continue
+		if err := initializeDevice(dbDevice); err != nil {
+			logger.ProviderLogger.Errorf("setupDevices: %s", err)
 		}
-		dbDevice.SemVer = semver
-
-		if config.ProviderConfig.SetupAppiumServers {
-			// Check if a capped Appium logs collection already exists for the current device
-			exists, err := db.GlobalMongoStore.CheckCollectionExistsWithDB("appium_logs_new", dbDevice.UDID)
-			if err != nil {
-				logger.ProviderLogger.Warnf("Could not check if device collection exists in `appium_logs_new` db, will attempt to create it either way - %s", err)
-			}
-
-			// If it doesn't exist - attempt to create it
-			if !exists {
-				err = db.GlobalMongoStore.CreateCappedCollectionWithDB("appium_logs_new", dbDevice.UDID, 30000, 30)
-				if err != nil {
-					logger.ProviderLogger.Errorf("updateDevices: Failed to create capped collection for device `%s` - %s", dbDevice, err)
-					continue
-				}
-			}
-
-			// Create an index model and add it to the respective device Appium log collection
-			appiumCollectionIndexModel := mongo.IndexModel{
-				Keys: bson.D{
-					{
-						Key: "timestamp", Value: constants.SortAscending,
-					},
-					{
-						Key: "session_id", Value: constants.SortAscending,
-					},
-					{
-						Key: "sequenceNumber", Value: constants.SortAscending,
-					},
-				},
-			}
-			db.GlobalMongoStore.AddCollectionIndexWithDB("appium_logs_new", dbDevice.UDID, appiumCollectionIndexModel)
-		}
-
-		// Create logs directory for the device if it doesn't already exist
-		if _, err := os.Stat(fmt.Sprintf("%s/device_%s", config.ProviderConfig.ProviderFolder, dbDevice.UDID)); os.IsNotExist(err) {
-			err = os.Mkdir(fmt.Sprintf("%s/device_%s", config.ProviderConfig.ProviderFolder, dbDevice.UDID), os.ModePerm)
-			if err != nil {
-				logger.ProviderLogger.Errorf("updateDevices: Could not create logs folder for device `%s` - %s\n", dbDevice.UDID, err)
-				continue
-			}
-		}
-
-		// Create a custom logger and attach it to the local device
-		deviceLogger, err := logger.CreateCustomLogger(fmt.Sprintf("%s/device_%s/device.log", config.ProviderConfig.ProviderFolder, dbDevice.UDID), dbDevice.UDID)
-		if err != nil {
-			logger.ProviderLogger.Errorf("updateDevices: Could not create custom logger for device `%s` - %s\n", dbDevice.UDID, err)
-			continue
-		}
-		dbDevice.Logger = *deviceLogger
-		dbDevice.InitialSetupDone = true
 	}
 }
 
@@ -223,8 +287,16 @@ func updateDevices() {
 		case <-ticker.C:
 			connectedDevices := GetConnectedDevicesCommon()
 
+			// Create a copy of devices to iterate over (with read lock)
+			DbDeviceMapMutex.RLock()
+			devicesCopy := make(map[string]*models.Device, len(DBDeviceMap))
+			for udid, device := range DBDeviceMap {
+				devicesCopy[udid] = device
+			}
+			DbDeviceMapMutex.RUnlock()
+
 		DEVICE_MAP_LOOP:
-			for dbDeviceUDID, dbDevice := range DBDeviceMap {
+			for dbDeviceUDID, dbDevice := range devicesCopy {
 				if dbDevice.Usage == "disabled" {
 					continue DEVICE_MAP_LOOP
 				}
@@ -985,6 +1057,7 @@ func startAppium(device *models.Device) {
 		ProviderUrl:       fmt.Sprintf("http://%s:%v", config.ProviderConfig.HostAddress, config.ProviderConfig.Port),
 		HeartBeatInterval: "2000",
 		UDID:              device.UDID,
+		MinioEnabled:      config.ProviderConfig.MinioAvailable,
 	}
 	pluginConfigJson, _ := json.Marshal(pluginConfig)
 
