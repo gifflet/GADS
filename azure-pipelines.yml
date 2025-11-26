@@ -46,7 +46,9 @@ stages:
         cliProjectName: 'GADS'
         cliSources: '.'
         extraProperties: |
-          sonar.exclusions=**/hub-ui/**,**/node_modules/**,**/vendor/**,**/build/**,**/*.zip,**/docs/**,**/__debug_bin*,**/ui-dist/**
+          sonar.exclusions=**/hub-ui/**,**/.github/**,**/appium-plugin/**,**/resources/**,**/node_modules/**,**/vendor/**,**/build/**,**/ui-dist/**,**/__debug_bin*,**/*.zip
+          sonar.javascript.file.suffixes=-
+          sonar.typescript.file.suffixes=-
 
     # Configure Git with GitHub token and initialize submodules
     - script: |
