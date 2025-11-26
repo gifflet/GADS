@@ -19,6 +19,7 @@ variables:
   BUILD_CONFIGURATION: 'Release'
   ARTIFACT_NAME: 'gads-build-artifacts'
   VERSION_PREFIX: 'dev'
+  SONAR_PROJECT_KEY: 'keeggo-informatica_GADS'
 
 stages:
 - stage: BuildAndRelease
@@ -31,7 +32,22 @@ stages:
     # Checkout code
     - checkout: self
       displayName: 'Checkout source code'
-    
+      fetchDepth: 0
+
+    # SonarCloud - Prepare Analysis (apenas backend Go)
+    - task: SonarCloudPrepare@2
+      displayName: 'Prepare analysis on SonarCloud'
+      inputs:
+        SonarCloud: 'SonarCloud'
+        organization: 'keeggo-informatica'
+        scannerMode: 'CLI'
+        configMode: 'manual'
+        cliProjectKey: '$(SONAR_PROJECT_KEY)'
+        cliProjectName: 'GADS'
+        cliSources: '.'
+        extraProperties: |
+          sonar.exclusions=**/hub-ui/**,**/node_modules/**,**/vendor/**,**/build/**,**/*.zip,**/docs/**,**/__debug_bin*,**/ui-dist/**
+
     # Configure Git with GitHub token and initialize submodules
     - script: |
         # Configure git to use the GitHub token for HTTPS authentication
@@ -141,7 +157,17 @@ stages:
         zip -j gads-linux-amd64-$(BUILD_VERSION).zip GADS
         rm GADS
       displayName: 'Build binaries for multiple platforms'
-    
+
+    # SonarCloud - Run Analysis
+    - task: SonarCloudAnalyze@2
+      displayName: 'SonarCloud Analyze'
+
+    # SonarCloud - Publish Quality Gate Result
+    - task: SonarCloudPublish@2
+      displayName: 'Publish SonarCloud Report'
+      inputs:
+        pollingTimeoutSec: '300'
+
     # Create build manifest for release pipeline
     - script: |
         cat > build-manifest.json << EOF
