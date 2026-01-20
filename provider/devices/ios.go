@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"GADS/provider/config"
 	"GADS/provider/logger"
 
+	"github.com/Masterminds/semver"
 	"github.com/danielpaulus/go-ios/ios"
 	"github.com/danielpaulus/go-ios/ios/forward"
 	"github.com/danielpaulus/go-ios/ios/imagemounter"
@@ -106,6 +108,21 @@ func UpdateWebDriverAgentStreamSettings(device *models.Device) error {
 
 func mountDeveloperImageIOS(device *models.Device) {
 	basedir := fmt.Sprintf("%s/devimages", config.ProviderConfig.ProviderFolder)
+
+	if device.SemVer.Compare(semver.MustParse("17.0.0")) >= 0 {
+		if isPymobileInstalled() {
+			logger.ProviderLogger.LogInfo("ios_device_setup", fmt.Sprintf("Detected iOS 17+ device `%s`, attempting to mount DDI with pymobiledevice3", device.UDID))
+			err := mountDDIWithPymobile(device)
+			if err != nil {
+				logger.ProviderLogger.LogWarn("ios_device_setup", fmt.Sprintf("pymobiledevice3 mount failed for device `%s`, falling back to go-ios: %s", device.UDID, err))
+			} else {
+				logger.ProviderLogger.LogInfo("ios_device_setup", fmt.Sprintf("Successfully mounted DDI with pymobiledevice3 for device `%s`", device.UDID))
+				return
+			}
+		} else {
+			logger.ProviderLogger.LogWarn("ios_device_setup", fmt.Sprintf("pymobiledevice3 not installed, falling back to go-ios for device `%s`", device.UDID))
+		}
+	}
 
 	path, err := imagemounter.DownloadImageFor(device.GoIOSDeviceEntry, basedir)
 	if err != nil {
@@ -325,6 +342,25 @@ func updateIOSScreenSize(device *models.Device, deviceMachineCode string) error 
 	if err != nil {
 		return fmt.Errorf("Failed to update DB with new device dimensions - %s", err)
 	}
+
+	return nil
+}
+
+func isPymobileInstalled() bool {
+	cmd := exec.Command("pymobiledevice3", "version")
+	err := cmd.Run()
+	return err == nil
+}
+
+func mountDDIWithPymobile(device *models.Device) error {
+	cmd := exec.Command("pymobiledevice3", "mounter", "auto-mount", "--udid", device.UDID)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("pymobiledevice3 auto-mount failed: %w, output: %s", err, output)
+	}
+
+	logger.ProviderLogger.LogInfo("ios_device_setup",
+		fmt.Sprintf("Successfully mounted DDI with pymobiledevice3 for device %s", device.UDID))
 
 	return nil
 }
