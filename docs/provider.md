@@ -49,6 +49,7 @@ To specify a folder, create it on your machine and provide it at startup using t
 #### iOS
 -  **Prepare** [WebDriverAgent](#build-webdriveragent-ipa-file-manually-using-xcode).
 - (Optional) **Supervise** [your iOS devices](#supervise-devices).
+- **Install** [pymobiledevice3](#pymobiledevice3---ios-17) if providing iOS 17+ devices.
 
 #### Tizen
 - **Install** [SDB (Smart Development Bridge)](#sdb---tizen-only)
@@ -74,6 +75,7 @@ To specify a folder, create it on your machine and provide it at startup using t
 - **Install** [usbmuxd](#usbmuxd) if providing iOS devices.
 - **Prepare** [WebDriverAgent](#prebuilt-custom-webdriveragent).
 - (Optional) **Supervise** [your iOS devices](#supervise-devices).
+- **Install** [pymobiledevice3](#pymobiledevice3---ios-17) if providing iOS 17+ devices.
 
 #### Tizen
 - **Install** [SDB (Smart Development Bridge)](#sdb---tizen-only)
@@ -104,6 +106,7 @@ To specify a folder, create it on your machine and provide it at startup using t
 - **Install** [iTunes](#itunes) if providing iOS devices.
 - **Prepare** [WebDriverAgent](#prebuilt-custom-webdriveragent).
 - (Optional) **Supervise** [your iOS devices](#supervise-devices).
+- **Install** [pymobiledevice3](#pymobiledevice3---ios-17) if providing iOS 17+ devices.
 
 #### Tizen
 - **Install** [SDB (Smart Development Bridge)](#sdb---tizen-only)
@@ -156,6 +159,36 @@ Example installation command for Ubuntu -  `sudo apt install usbmuxd`.
 
 ### iTunes - Windows -> iOS
 `iTunes` is needed only on **Windows** and mandatory when providing **iOS devices**. Install it through an installation package or Microsoft Store, shouldn't really matter
+
+---
+
+### pymobiledevice3 - iOS 17+
+`pymobiledevice3` is a Python tool **required** for mounting the Developer Disk Image (DDI) on iOS 17+ devices.
+
+**Why install it:**
+- iOS 17 introduced changes to the DDI mounting mechanism
+- The `go-ios` fallback method currently **does not download the correct image** for iOS 17+, resulting in **device provisioning failure**
+- Without `pymobiledevice3`, iOS 17+ devices **will not be provisioned correctly** and will be unusable in GADS
+- GADS will automatically detect and use it when available for iOS 17+ devices
+
+**Installation:**
+- Install Python 3 and pip if not already installed
+- Run: `python3 -m pip install -U pymobiledevice3`
+- Verify installation: `pymobiledevice3 version`
+
+**Linux systemd service configuration:**
+If running GADS as a Linux systemd service and pymobiledevice3 is installed in a non-standard location (not in default PATH), you need to update `/etc/sysconfig/gads`:
+
+```bash
+# /etc/sysconfig/gads
+# Add the pymobiledevice3 binary location to PATH
+# Example: if installed in /root/.local/bin
+PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+```
+
+**Note**: The default pip install location for user installations is typically `~/.local/bin`. If pymobiledevice3 is installed globally (with `sudo pip3 install`), it will be in `/usr/local/bin` which is usually already in PATH.
+
+---
 
 ### WebDriverAgent -> iOS
 
