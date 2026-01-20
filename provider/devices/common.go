@@ -486,6 +486,18 @@ func setupAndroidDevice(device *models.Device) {
 	}
 	logger.ProviderLogger.LogDebug("android_device_setup", fmt.Sprintf("Successfully forwarded GADS streaming port to host port for Android device `%v`", device.UDID))
 
+	// Send TURN configuration to WebRTC service (must happen AFTER port forward and BEFORE any WebRTC offer)
+	if device.UseWebRTCVideo {
+		logger.ProviderLogger.LogDebug("android_device_setup", fmt.Sprintf("Sending TURN configuration to WebRTC service for device `%s`", device.UDID))
+		err = UpdateWebRTCTURNConfig(device)
+		if err != nil {
+			logger.ProviderLogger.LogWarn("android_device_setup", fmt.Sprintf("Could not send TURN config to device `%s` - %v (WebRTC will use STUN only)", device.UDID, err))
+			// Don't fail setup - TURN is optional, STUN might work
+		} else {
+			logger.ProviderLogger.LogDebug("android_device_setup", fmt.Sprintf("Successfully sent TURN configuration to device `%s`", device.UDID))
+		}
+	}
+
 	logger.ProviderLogger.LogDebug("android_device_setup", fmt.Sprintf("Setup GADS Android IME for Android device `%v`", device.UDID))
 	err = setupGadsAndroidIME(device)
 	if err != nil {
