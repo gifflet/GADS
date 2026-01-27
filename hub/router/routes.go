@@ -917,6 +917,10 @@ func UpdateDevice(c *gin.Context) {
 				dbDevice.WorkspaceID = reqDevice.WorkspaceID
 			}
 
+			if reqDevice.ManufactureYear != 0 && reqDevice.ManufactureYear != dbDevice.ManufactureYear {
+				dbDevice.ManufactureYear = reqDevice.ManufactureYear
+			}
+
 			// Validate device configuration before saving to DB
 			err = models.ValidateDevice(&dbDevice)
 			if err != nil {
