@@ -49,6 +49,7 @@ stages:
           sonar.exclusions=**/hub-ui/**,**/.github/**,**/appium-plugin/**,**/resources/**,**/node_modules/**,**/vendor/**,**/build/**,**/ui-dist/**,**/__debug_bin*,**/*.zip
           sonar.javascript.file.suffixes=-
           sonar.typescript.file.suffixes=-
+          sonar.scm.use.blame.algorithm=GIT_FILES_BLAME
 
     # Configure Git with GitHub token and initialize submodules
     - script: |
