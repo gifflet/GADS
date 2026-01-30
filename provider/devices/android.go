@@ -204,8 +204,25 @@ func uninstallGadsStream(device *models.Device) error {
 func addGadsStreamRecordingPermissions(device *models.Device) error {
 	logger.ProviderLogger.LogInfo("android_device_setup", fmt.Sprintf("Adding GADS-stream recording permissions on device `%v`", device.UDID))
 
-	cmd := exec.CommandContext(device.Context, "adb", "-s", device.UDID, "shell", "appops", "set", GetStreamServicePackageName(device), "PROJECT_MEDIA", "allow")
+	packageName := GetStreamServicePackageName(device)
+
+	// Screen recording permission (app-op only)
+	cmd := exec.CommandContext(device.Context, "adb", "-s", device.UDID, "shell", "appops", "set", packageName, "PROJECT_MEDIA", "allow")
 	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("addGadsStreamRecordingPermissions: Error executing `%s` - %s", cmd.Args, err)
+	}
+
+	// Audio recording - runtime permission (required for dangerous permissions)
+	cmd = exec.CommandContext(device.Context, "adb", "-s", device.UDID, "shell", "pm", "grant", packageName, "android.permission.RECORD_AUDIO")
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("addGadsStreamRecordingPermissions: Error executing `%s` - %s", cmd.Args, err)
+	}
+
+	// Audio recording - app-op (additional tracking layer)
+	cmd = exec.CommandContext(device.Context, "adb", "-s", device.UDID, "shell", "appops", "set", packageName, "RECORD_AUDIO", "allow")
+	err = cmd.Run()
 	if err != nil {
 		return fmt.Errorf("addGadsStreamRecordingPermissions: Error executing `%s` - %s", cmd.Args, err)
 	}
