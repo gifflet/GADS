@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"GADS/common"
 
@@ -251,6 +252,25 @@ type WdaOrientationResponse struct {
 	Orientation string `json:"value"`
 }
 
+func wdaGetOrientation(platDev devices.PlatformDevice) (string, error) {
+	wdaResp, err := wdaRequest(platDev, http.MethodGet, "orientation", nil)
+	if err != nil {
+		return "", err
+	}
+	defer wdaResp.Body.Close()
+
+	body, err := io.ReadAll(wdaResp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var responseJson WdaOrientationResponse
+	if err := json.Unmarshal(body, &responseJson); err != nil {
+		return "", err
+	}
+	return strings.ToLower(responseJson.Orientation), nil
+}
+
 // DeviceInfoResponse is the composite response for the DeviceInfo endpoint,
 // combining DB fields with all runtime state from the provider.
 type DeviceInfoResponse struct {
@@ -315,23 +335,13 @@ func DeviceInfo(c *gin.Context) {
 			}
 		}
 	case "ios":
-		wdaResp, err := wdaRequest(platDev, http.MethodGet, "orientation", nil)
+		rotation, err := wdaGetOrientation(platDev)
 		if err != nil {
 			resp.CurrentRotation = "portrait"
 			api.OK(c, "", resp)
 			return
 		}
-		defer wdaResp.Body.Close()
-
-		responseBody, _ := io.ReadAll(wdaResp.Body)
-		var responseJson WdaOrientationResponse
-		err = json.Unmarshal(responseBody, &responseJson)
-		if err != nil {
-			resp.CurrentRotation = "portrait"
-			api.OK(c, "", resp)
-			return
-		}
-		resp.CurrentRotation = strings.ToLower(responseJson.Orientation)
+		resp.CurrentRotation = rotation
 	}
 
 	api.OK(c, "Successfully retrieved device info", resp)
@@ -363,7 +373,12 @@ func DeviceChangeRotation(c *gin.Context) {
 
 	var requestBody models.DeviceRotation
 	if err := json.NewDecoder(c.Request.Body).Decode(&requestBody); err != nil {
-		api.InternalError(c, err.Error())
+		api.BadRequest(c, err.Error())
+		return
+	}
+
+	if requestBody.Rotation != "portrait" && requestBody.Rotation != "landscape" {
+		api.BadRequest(c, fmt.Sprintf("Invalid rotation `%s`, expected `portrait` or `landscape`", requestBody.Rotation))
 		return
 	}
 
@@ -374,9 +389,23 @@ func DeviceChangeRotation(c *gin.Context) {
 	}
 
 	dev := platDev.GetDBDevice()
+	currentRotation := requestBody.Rotation
 	if dev.OS == "android" {
 		if err := rc.ChangeRotation(requestBody.Rotation); err != nil {
 			api.InternalError(c, err.Error())
+			return
+		}
+		// Rotation is not instant on Android, wait before reading it back
+		time.Sleep(1 * time.Second)
+		if rotation, err := rc.GetCurrentRotation(); err == nil {
+			currentRotation = rotation
+		}
+		// Revert the pending user_rotation when the screen did not rotate,
+		// otherwise it would kick in once the foreground app changes
+		if currentRotation != requestBody.Rotation {
+			if err := rc.ChangeRotation(currentRotation); err != nil {
+				platDev.GetLogger().LogError("device_rotation", fmt.Sprintf("Failed to revert rotation to %s - %s", currentRotation, err))
+			}
 		}
 	} else {
 		reqBody := struct {
@@ -384,16 +413,31 @@ func DeviceChangeRotation(c *gin.Context) {
 		}{
 			Orientation: strings.ToUpper(requestBody.Rotation),
 		}
-		orientationJson, err := json.MarshalIndent(reqBody, "", "  ")
+		orientationJson, err := json.Marshal(reqBody)
 		if err != nil {
 			api.InternalError(c, err.Error())
 			return
 		}
-		_, err = wdaRequest(platDev, http.MethodPost, "orientation", bytes.NewReader(orientationJson))
+		wdaResp, err := wdaRequest(platDev, http.MethodPost, "orientation", bytes.NewReader(orientationJson))
 		if err != nil {
 			api.InternalError(c, err.Error())
+			return
+		}
+		defer wdaResp.Body.Close()
+		if wdaResp.StatusCode >= 400 {
+			body, _ := io.ReadAll(wdaResp.Body)
+			api.InternalError(c, fmt.Sprintf("WDA rotation request failed with status %d - %s", wdaResp.StatusCode, string(body)))
+			return
+		}
+		if rotation, err := wdaGetOrientation(platDev); err == nil {
+			currentRotation = rotation
 		}
 	}
+
+	api.OK(c, "Device rotation request processed", gin.H{
+		"rotation": currentRotation,
+		"applied":  currentRotation == requestBody.Rotation,
+	})
 }
 
 func DevicesInfo(c *gin.Context) {

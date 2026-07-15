@@ -599,9 +599,10 @@ func (d *AndroidDevice) disableAutoRotation() error {
 	return nil
 }
 
-// GetCurrentRotation returns "portrait" or "landscape".
+// GetCurrentRotation returns "portrait" or "landscape" based on the actual display
+// rotation - user_rotation only reflects the requested value, not what is on screen.
 func (d *AndroidDevice) GetCurrentRotation() (string, error) {
-	cmd := exec.CommandContext(d.Context, "adb", "-s", d.GetUDID(), "shell", "settings", "get", "system", "user_rotation")
+	cmd := exec.CommandContext(d.Context, "adb", "-s", d.GetUDID(), "shell", "dumpsys", "window")
 
 	var outBuffer bytes.Buffer
 	cmd.Stdout = &outBuffer
@@ -609,9 +610,13 @@ func (d *AndroidDevice) GetCurrentRotation() (string, error) {
 		return "portrait", err
 	}
 
-	result := strings.TrimSpace(outBuffer.String())
-	if result == "1" {
-		return "landscape", nil
+	for _, line := range strings.Split(outBuffer.String(), "\n") {
+		if strings.Contains(line, "mRotation=") || strings.Contains(line, "mCurrentRotation=") {
+			if strings.Contains(line, "ROTATION_90") || strings.Contains(line, "ROTATION_270") {
+				return "landscape", nil
+			}
+			return "portrait", nil
+		}
 	}
 	return "portrait", nil
 }
@@ -621,6 +626,10 @@ func (d *AndroidDevice) ChangeRotation(rotation string) error {
 	var adbRotationValue = "0"
 	if rotation == "landscape" {
 		adbRotationValue = "1"
+	}
+	// user_rotation only takes effect when auto-rotate is off
+	if err := d.disableAutoRotation(); err != nil {
+		return err
 	}
 	cmd := exec.CommandContext(d.Context, "adb", "-s", d.GetUDID(), "shell", "settings", "put", "system", "user_rotation", adbRotationValue)
 	if err := cmd.Run(); err != nil {
