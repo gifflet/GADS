@@ -13,6 +13,11 @@ const log = logger.getLogger(NAME); // Appium-support logger, namespaced to "GAD
  * Custom Appium plugin that:
  *  - Registers the Appium server instance with an external "GADS" hub
  *  - Mirrors all server logs to that hub, tagged by session
+ *
+ * Do not add a generic handle() method: its mere presence makes Appium skip direct proxying
+ * for every command, and drivers whose proxyCommand returns the raw proxy response
+ * (e.g. appium-tizen-tv-driver) then leak a [{statusCode, headers, body}] envelope to the
+ * client instead of the W3C value, breaking element lookups and screenshots
  */
 class GadsAppium extends BasePlugin {
     static apiClient = null;
@@ -141,18 +146,6 @@ class GadsAppium extends BasePlugin {
         await GadsAppium.apiClient.removeSession()
 
         return deleteSessionResult
-    }
-
-    /**
-     * Wraps the handle function for driver commands so we can get data for session logging
-     * @param {*} next 
-     * @param {*} driver 
-     * @param {*} commandName 
-     * @param  {...any} args 
-     * @returns 
-     */
-    async handle(next, driver, commandName, ...args) {
-        return await next()
     }
 
     /**
